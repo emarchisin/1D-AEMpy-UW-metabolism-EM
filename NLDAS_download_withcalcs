@@ -1,0 +1,82 @@
+##for use in Google Earth Engine
+var bounds = ee.Geometry.Rectangle([-89.48, 43.07, -89.36, 43.14]); //set bounding coordinates
+var start = ee.Date('2024-01-20T00:00'); //set start date
+var end = ee.Date('2024-12-30T12:00'); //set end date
+
+var dataset = ee.ImageCollection('NASA/NLDAS/FORA0125_H002') //indicates which NLDAS data set to pull from
+  .filterDate(start, end)
+  .filterBounds(bounds);
+
+var addVariables = function(image) { 
+  var TairC = image.select('temperature'); //degC
+  var Pa = image.select('pressure'); //Pa
+  var Qair = image.select('specific_humidity'); //mass fraction
+  var WindU = image.select('wind_u'); //m/s
+  var WindV = image.select('wind_v'); //m/s
+  var Precip = image.select('total_precipitation'); //kg/m^2
+  var SWrad = image.select('shortwave_radiation'); //W/m^2
+  var LWrad = image.select('longwave_radiation'); //W/m^2
+
+  var Ta_C = TairC.rename('Air_Temperature_celsius');
+  var Pa_mb = Pa.multiply(0.01);
+
+  var Rain_mm_day = Precip.multiply(86400).rename('Precipitation_millimeterPerDay'); //concert precip
+  var WindSpeed = WindU.pow(2).add(WindV.pow(2)).sqrt()
+    .rename('Ten_Meter_Elevation_Wind_Speed_meterPerSecond'); //convert wind speed
+
+  // Calculate ew for use in relative humidity calcs
+  var ew = (Pa_mb.multiply(3.46e-6).add(1.0007))
+    .multiply(6.1121)
+    .multiply(
+      Ta_C.multiply(17.502).divide(Ta_C.add(240.97)).exp()
+    );
+
+  var qsat = ew.multiply(0.62197)
+    .divide(Pa_mb.subtract(ew.multiply(0.378)));
+
+  var RelHum = Qair.divide(qsat).multiply(100)
+    .rename('Relative_Humidity_percent'); 
+
+  var SW_down = SWrad.rename('Shortwave_Radiation_Downwelling_wattPerMeterSquared');
+  var LW_down = LWrad.rename('Longwave_Radiation_Downwelling_wattPerMeterSquared');
+  var SurfPres = Pa.rename('Surface_Level_Barometric_Pressure_pascal');
+
+  return ee.Image.cat([
+    Ta_C, SW_down, LW_down, RelHum, WindSpeed, Rain_mm_day, SurfPres
+  ]).set('system:time_start', image.get('system:time_start'));
+};
+
+var converted = dataset.map(addVariables);
+
+var reduced = converted.map(function(image) {
+  var stats = image.reduceRegion({
+    reducer: ee.Reducer.mean(),
+    geometry: bounds,
+    scale: 12500,
+    maxPixels: 1e13
+  });
+  var datetimeCT = image.date().advance(-6, 'hour')
+    .format('YYYY-MM-dd HH:mm'); //converts to central time
+
+  return ee.Feature(null, stats)
+    .set('datetime', datetimeCT);
+});
+
+//export for format of 1D-AEMpy
+Export.table.toDrive({ 
+  collection: ee.FeatureCollection(reduced),
+  description: 'NLDAS_Hourly_converted_2024',
+  folder: 'NLDASdownload',
+  fileNamePrefix: 'nldas_hourly_converted_2024',
+  fileFormat: 'CSV',
+  selectors: [ // order columns exactly as you want them
+    'datetime',
+    'Air_Temperature_celsius',
+    'Shortwave_Radiation_Downwelling_wattPerMeterSquared',
+    'Longwave_Radiation_Downwelling_wattPerMeterSquared',
+    'Relative_Humidity_percent',
+    'Ten_Meter_Elevation_Wind_Speed_meterPerSecond',
+    'Precipitation_millimeterPerDay',
+    'Surface_Level_Barometric_Pressure_pascal'
+  ]
+});

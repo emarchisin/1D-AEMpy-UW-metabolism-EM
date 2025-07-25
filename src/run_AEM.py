@@ -28,7 +28,7 @@ area, depth, volume = get_hypsography(hypsofile = '/Users/emmamarchisin/Desktop/
                             dx = dx, nx = nx)
                             
 ## atmospheric boundary conditions
-meteo_all = provide_meteorology(meteofile = '../input/Mendota_2016_2024_for_1DAEMpy.csv',
+meteo_all = provide_meteorology(meteofile = '../input/ME_nldas-16-24.csv',
                     secchifile = None, 
                     windfactor = 1.0)
 

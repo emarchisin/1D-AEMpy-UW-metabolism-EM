@@ -35,7 +35,7 @@ meteo_all = provide_meteorology(meteofile = '../input/ME_nldas-16-24.csv',
 pd.DataFrame(meteo_all[0]).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/meteorology_input2.csv", index = False)
                      
 ## time step discretization 
-n_years = (3/365) #7
+n_years = (8.5) #7
 hydrodynamic_timestep = 24 * dt
 total_runtime =  (365 * n_years) * hydrodynamic_timestep/dt  
 startTime =   (182) * hydrodynamic_timestep/dt # DOY in 2016 * 24 hours 138
@@ -508,7 +508,7 @@ plt.show()
 pd.DataFrame(temp).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_temp.csv")
 pd.DataFrame(o2).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_do.csv")
 pd.DataFrame((o2/ volume[:, np.newaxis]).T).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_do_mgL.csv")
-pd.DataFrame(docr).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_docr.csv")
+pd.DataFrame(docr).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB MEME.modeled_docr.csv")
 pd.DataFrame(docl).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_docl.csv")
 pd.DataFrame(pocl).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_pocl.csv")
 pd.DataFrame((poc_all/ volume[:, np.newaxis]).T).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_pocall_ugL.csv")

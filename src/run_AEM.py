@@ -504,7 +504,7 @@ plt.show()
 # phosphorus bcDesktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/
 # ice npp
 # wind mixingS
-
+poc_all = np.add(pocl, pocr)
 pd.DataFrame(temp).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_temp.csv")
 pd.DataFrame(o2).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_do.csv")
 pd.DataFrame((o2/ volume[:, np.newaxis]).T).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_do_mgL.csv")

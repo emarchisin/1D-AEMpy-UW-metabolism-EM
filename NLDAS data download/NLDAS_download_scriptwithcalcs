@@ -13,14 +13,14 @@ var addVariables = function(image) {
   var Qair = image.select('specific_humidity'); //mass fraction
   var WindU = image.select('wind_u'); //m/s
   var WindV = image.select('wind_v'); //m/s
-  var Precip = image.select('total_precipitation'); //kg/m^2
+  var Precip = image.select('total_precipitation'); //kg/m^2 hourly total precip
   var SWrad = image.select('shortwave_radiation'); //W/m^2
   var LWrad = image.select('longwave_radiation'); //W/m^2
 
   var Ta_C = TairC.rename('Air_Temperature_celsius');
   var Pa_mb = Pa.multiply(0.01);
 
-  var Rain_mm_day = Precip.multiply(86400).rename('Precipitation_millimeterPerDay'); //concert precip
+  var Rain_mm_day = Precip.multiply(24).rename('Precipitation_millimeterPerDay'); //convert precip
   var WindSpeed = WindU.pow(2).add(WindV.pow(2)).sqrt()
     .rename('Ten_Meter_Elevation_Wind_Speed_meterPerSecond'); //convert wind speed
 

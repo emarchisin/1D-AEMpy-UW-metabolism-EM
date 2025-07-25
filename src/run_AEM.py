@@ -13,7 +13,7 @@ from numba import jit
 #os.chdir("/home/robert/Projects/1D-AEMpy/src")
 #os.chdir("C:/Users/ladwi/Documents/Projects/R/1D-AEMpy/src")
 #os.chdir("D:/bensd/Documents/Python_Workspace/1D-AEMpy/src")
-os.chdir("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-BM/src")
+os.chdir("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/src")
 from processBased_lakeModel_functions import get_hypsography, provide_meteorology, initial_profile, run_wq_model, wq_initial_profile, provide_phosphorus, do_sat_calc, calc_dens,atmospheric_module #, heating_module, diffusion_module, mixing_module, convection_module, ice_module
 
 
@@ -24,7 +24,7 @@ dt = 3600 # 24 hours times 60 min/hour times 60 seconds/min to convert s to day
 dx = zmax/nx # spatial step
 
 ## area and depth values of our lake 
-area, depth, volume = get_hypsography(hypsofile = '/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-BM/input/bathymetry.csv',
+area, depth, volume = get_hypsography(hypsofile = '/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/input/bathymetry.csv',
                             dx = dx, nx = nx)
                             
 ## atmospheric boundary conditions
@@ -32,7 +32,7 @@ meteo_all = provide_meteorology(meteofile = '../input/Mendota_2016_2024_for_1DAE
                     secchifile = None, 
                     windfactor = 1.0)
 
-pd.DataFrame(meteo_all[0]).to_csv("/Users/emmamarchisin/Desktop/Research/Data/1DAEM outputs/PB ME/meteorology_input2.csv", index = False)
+pd.DataFrame(meteo_all[0]).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/meteorology_input2.csv", index = False)
                      
 ## time step discretization 
 n_years = (3/365) #7
@@ -180,8 +180,8 @@ atm_flux_output=res['atm_flux_output']
 
 End = datetime.datetime.now()
 print(End - Start)
-####diagnistic graphs###
 
+####diagnistic graphs###
 light=meteo_all[0]['Shortwave_Radiation_Downwelling_wattPerMeterSquared'].iloc[int(startTime):int(endTime)].reset_index(drop=True)
 wind=meteo_all[0]['Ten_Meter_Elevation_Wind_Speed_meterPerSecond'].iloc[int(startTime):int(endTime)].reset_index(drop=True)
 #times2 = meteo_all[0]['datetime']
@@ -501,21 +501,21 @@ plt.show()
 # sediment loss POC
 # diffusive transport
 # r and npp
-# phosphorus bc
+# phosphorus bcDesktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/
 # ice npp
 # wind mixingS
 
-pd.DataFrame(temp).to_csv("/Users/emmamarchisin/Desktop/Research/Data/1DAEM outputs/PB ME/ME.modeled_temp.csv")
-pd.DataFrame(o2).to_csv("/Users/emmamarchisin/Desktop/Research/Data/1DAEM outputs/PB ME/ME.modeled_do.csv")
-pd.DataFrame((o2/ volume[:, np.newaxis]).T).to_csv("/Users/emmamarchisin/Desktop/Research/Data/1DAEM outputs/PB ME/ME.modeled_do_mgL.csv")
-pd.DataFrame(docr).to_csv("/Users/emmamarchisin/Desktop/Research/Data/1DAEM outputs/PB ME/ME.modeled_docr.csv")
-pd.DataFrame(docl).to_csv("/Users/emmamarchisin/Desktop/Research/Data/1DAEM outputs/PB ME/ME.modeled_docl.csv")
-pd.DataFrame(pocl).to_csv("/Users/emmamarchisin/Desktop/Research/Data/1DAEM outputs/PB ME/ME.modeled_pocl.csv")
-pd.DataFrame((poc_all/ volume[:, np.newaxis]).T).to_csv("/Users/emmamarchisin/Desktop/Research/Data/1DAEM outputs/PB ME/ME.modeled_pocall_ugL.csv")
-pd.DataFrame(pocr).to_csv("/Users/emmamarchisin/Desktop/Research/Data/1DAEM outputs/PB ME/ME.modeled_pocr.csv")
-pd.DataFrame(secchi).to_csv("/Users/emmamarchisin/Desktop/Research/Data/1DAEM outputs/PB ME/ME.modeled_secchi.csv")
-pd.DataFrame(thermo_dep).to_csv("/Users/emmamarchisin/Desktop/Research/Data/1DAEM outputs/PB ME/ME.modeled_thermo_dep.csv")
-pd.DataFrame(times).to_csv("/Users/emmamarchisin/Desktop/Research/Data/1DAEM outputs/PB ME/ME.modeled_times.csv")
+pd.DataFrame(temp).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_temp.csv")
+pd.DataFrame(o2).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_do.csv")
+pd.DataFrame((o2/ volume[:, np.newaxis]).T).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_do_mgL.csv")
+pd.DataFrame(docr).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_docr.csv")
+pd.DataFrame(docl).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_docl.csv")
+pd.DataFrame(pocl).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_pocl.csv")
+pd.DataFrame((poc_all/ volume[:, np.newaxis]).T).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_pocall_ugL.csv")
+pd.DataFrame(pocr).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_pocr.csv")
+pd.DataFrame(secchi).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_secchi.csv")
+pd.DataFrame(thermo_dep).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_thermo_dep.csv")
+pd.DataFrame(times).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_times.csv")
 
 
 # pd.DataFrame(temp).to_csv("D:/bensd/Documents/RStudio Workspace/1D-AEM-py/model_output/modeled_temp.csv")

@@ -52,7 +52,7 @@ var reduced = converted.map(function(image) {
   var stats = image.reduceRegion({
     reducer: ee.Reducer.mean(), //if multicell, takes the average
     geometry: bounds,
-    scale: 12500,
+    scale: 12500, //edit based on size of bounding box
     maxPixels: 1e13
   });
   var datetimeCT = image.date().advance(-6, 'hour')

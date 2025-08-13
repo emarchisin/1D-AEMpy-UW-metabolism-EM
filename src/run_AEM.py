@@ -1,3 +1,4 @@
+#new
 import numpy as np
 import pandas as pd
 import os
@@ -13,26 +14,31 @@ from numba import jit
 #os.chdir("/home/robert/Projects/1D-AEMpy/src")
 #os.chdir("C:/Users/ladwi/Documents/Projects/R/1D-AEMpy/src")
 #os.chdir("D:/bensd/Documents/Python_Workspace/1D-AEMpy/src")
-os.chdir("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/src")
-from processBased_lakeModel_functions import get_hypsography, provide_meteorology, initial_profile, run_wq_model, wq_initial_profile, provide_phosphorus, do_sat_calc, calc_dens,atmospheric_module #, heating_module, diffusion_module, mixing_module, convection_module, ice_module
+#os.chdir("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/src")
+from processBased_lakeModel_functions import get_hypsography, provide_meteorology, initial_profile, run_wq_model, wq_initial_profile, provide_phosphorus, do_sat_calc, calc_dens,atmospheric_module, get_secview, get_lake_config, get_lake_params #, heating_module, diffusion_module, mixing_module, convection_module, ice_module
 
 
 ## lake configurations
+lake_config = get_lake_config("../input/lake_config.csv", 1)
+lake_params = get_lake_params("../input/lake_params.csv", 1)
+zmax = lake_config['Zmax']
+windfactor = float(lake_config["WindSpeed"])
 zmax = 25 # maximum lake depth
 nx = 25 * 2 # number of layers we will have
 dt = 3600 # 24 hours times 60 min/hour times 60 seconds/min to convert s to day
 dx = zmax/nx # spatial step
 
 ## area and depth values of our lake 
-area, depth, volume = get_hypsography(hypsofile = '/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/input/bathymetry.csv',
+area, depth, volume = get_hypsography(hypsofile = '../input/bathymetry.csv',
                             dx = dx, nx = nx)
-                            
-## atmospheric boundary conditions
-meteo_all = provide_meteorology(meteofile = '../input/ME_nldas-16-24.csv',
-                    secchifile = None, 
-                    windfactor = 1.0)
 
-pd.DataFrame(meteo_all[0]).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/meteorology_input2.csv", index = False)
+                
+## atmospheric boundary conditions
+#secview = get_secview(secchifile = "../input/secchifile.csv")  
+meteo_all = provide_meteorology(meteofile = '../input/ME_nldas-16-24.csv', 
+                    windfactor = windfactor)
+
+pd.DataFrame(meteo_all).to_csv("../input/NLDAS-ME-meteo16-24.csv", index = False)
                      
 ## time step discretization 
 n_years = (8.5) #7
@@ -41,8 +47,8 @@ total_runtime =  (365 * n_years) * hydrodynamic_timestep/dt
 startTime =   (182) * hydrodynamic_timestep/dt # DOY in 2016 * 24 hours 138
 endTime =  (startTime + total_runtime) # * hydrodynamic_timestep/dt) - 1
 
-startingDate = meteo_all[0]['date'][startTime] #* hydrodynamic_timestep/dt]
-endingDate = meteo_all[0]['date'][(endTime-1)]#meteo_all[0]['date'][(startTime + total_runtime)]# * hydrodynamic_timestep/dt -1]
+startingDate = meteo_all['date'][startTime] #* hydrodynamic_timestep/dt]
+endingDate = meteo_all['date'][(endTime-1)]#meteo_all[0]['date'][(startTime + total_runtime)]# * hydrodynamic_timestep/dt -1]
 
 times = pd.date_range(startingDate, endingDate, freq='H')
 
@@ -63,44 +69,80 @@ tp_boundary = provide_phosphorus(tpfile =  '../input/Mendota_observations_tp_2.c
                                  startingDate = startingDate,
                                  startTime = startTime)
 
+#ice_and_snow = get_ice_and_snow("../input/ice_and_snow.csv")
+
+
 tp_boundary = tp_boundary.dropna(subset=['tp'])
 
 Start = datetime.datetime.now()
 
     
 res = run_wq_model(  
+
+    #initial conditions
     u = deepcopy(u_ini),
     o2 = deepcopy(wq_ini[0]),
     docr = deepcopy(wq_ini[1]) * 1.3,
     docl = 1.0 * volume,
     pocr = 0.5 * volume,
     pocl = 0.5 * volume,
+
+    #time & space settings
     startTime = startTime, 
     endTime = endTime, 
+    nx = nx, #
+    dt = dt,
+    dx = dx, #
+    timelabels = times,
+    
+    
+   
+
+    #meteorology & boundary forcing
+    daily_meteo = meteo_all,
+    secview = None, #secview,
+    phosphorus_data = tp_boundary,
+    oc_load_input = 38  * max(area) / 8760, #= lake_config["OCLoad"] # 38 gC/m2/yr (Hanson et al. 2023) divided by 8760 hr/yr
+
+    #lake morphometry
     area = area,
     volume = volume,
     depth = depth,
     zmax = zmax,
-    nx = nx,
-    dt = dt,
-    dx = dx,
-    daily_meteo = meteo_all[0],
-    secview = meteo_all[1],
-    phosphorus_data = tp_boundary,
-    ice = False,
-    Hi = 0,
-    Hs = 0,
-    Hsi = 0,
-    iceT = 6,
-    supercooled = 0,
+    outflow_depth = 6.5,
+    mean_depth = sum(volume)/max(area),
+
+    #ice & snow dynamics
+    ice = False, #= ice_and_snow["ice"]
+    Hi = 0, #= ice_and_snow["Hi"]
+    Hs = 0, #= ice_and_snow["Hs"]
+    Hsi = 0, #= ice_and_snow["Hsi"]
+    iceT = 6, #= ice_and_snow["iceT"]
+    supercooled = 0, #= ice_and_snow["supercooled"]
+    dt_iceon_avg = 0.8, #= ice_and_snow["dt_iceon_avg"]
+    Ice_min = 0.1, #= ice_and_snow["Ice_min"]
+    KEice = 0, #= ice_and_snow["KEice"]
+    rho_snow = 250, #= ice_and_snow["rho_snow"]
+
+    #mixing and physical transport
     diffusion_method = 'pacanowskiPhilander',#'pacanowskiPhilander',# 'hendersonSellers', 'munkAnderson' 'hondzoStefan'
     scheme ='implicit',
     km = 1.4 * 10**(-7), # 4 * 10**(-6), 
     k0 = 1 * 10**(-2),
     weight_kz = 0.5,
-    kd_light = 0.6, 
+    piston_velocity = 1.0/86400,
+    Cd = 0.0013, # momentum coeff (wind)
+    hydro_res_time_hr = 4.3 * 8760,
+    W_str = None,
     denThresh = 1e-2,
-    albedo = 0.01,
+
+    #light & heat fluxes
+
+    kd_light = 0.6, 
+    light_water = 0.125,
+    light_doc = 0.02, #= lake_params["LECDOCR"]
+    light_poc = 0.7, #= lake_params["LECPOCR"]
+    albedo = 0.01, #= lake_config["Albedo"]
     eps = 0.97,
     emissivity = 0.97,
     sigma = 5.67e-8,
@@ -108,44 +150,38 @@ res = run_wq_model(
     wind_factor = 1.2,
     at_factor = 1.0,
     turb_factor = 1.0,
-    p2 = 1,
-    B = 0.61,
-    g = 9.81,
-    Cd = 0.0013, # momentum coeff (wind)
-    meltP = 1,
-    dt_iceon_avg = 0.8,
     Hgeo = 0.1, # geothermal heat 
-    KEice = 0,
-    Ice_min = 0.1,
-    pgdl_mode = 'on',
-    rho_snow = 250,
-    p_max = 1/86400,#1
-    IP = 3e-5/86400 ,#0.1, 3e-5
-    theta_npp = 1.08, #1.08
-    theta_r = 1.08, #1.08 #1.5 for 104 #1.35 for 106
-    conversion_constant = 1e-4,#0.1
+
+    #biogeochemical params
+    resp_docr = 0.003/86400,   # = lake_params["RDOCR"]# 0.001 0.0001 s-1
+    resp_docl = 0.05/86400,# = lake_params["RDOCL"] # 0.01 0.05 s-1
+    resp_poc = 0.15/86400,  #= lake_params["RPOCR"] # 0.1 0.001 0.0001 s-1
     sed_sink = -0.0626/ 86400, #0.01 #-.12 
-    k_half = 0.5,
-    resp_docr = 0.003/86400, # 0.001 0.0001 s-1
-    resp_docl = 0.05/86400, # 0.01 0.05 s-1
-    resp_poc = 0.15/86400, # 0.1 0.001 0.0001 s-1
     settling_rate = 0.7/86400, #0.3
     sediment_rate = 0.1/86400,
-    piston_velocity = 1.0/86400,
-    light_water = 0.125,
-    light_doc = 0.02,
-    light_poc = 0.7,
-    oc_load_input = 38  * max(area) / 8760, # 38 gC/m2/yr (Hanson et al. 2023) divided by 8760 hr/yr
-    hydro_res_time_hr = 4.3 * 8760,
-    outflow_depth = 6.5,
+    theta_npp = 1.08, #1.08
+    theta_r = 1.08, #= lake_params["RTheta"] #1.08 #1.5 for 104 #1.35 for 106
+    conversion_constant = 1e-4,#0.1
+    k_half = 0.5,
+    p_max = 1/86400,#1
+    IP = 3e-5/86400 ,#0.1, 3e-5
+
+    #carbon pool partitioning
     prop_oc_docr = 0.8, #0.8
     prop_oc_docl = 0.05, #0.05
     prop_oc_pocr = 0.05, #0.05
     prop_oc_pocl = 0.1, #0.1
-    mean_depth = sum(volume)/max(area),
-    W_str = None,
+
+    #general physical constants
+    p2 = 1,
+    B = 0.61,
+    g = 9.81,
+    meltP = 1,
+    
+    #runtime config
+    pgdl_mode = 'on', 
     training_data_path = '../output', #'../output'
-    timelabels = times)
+    )
    # atm_flux=atm_flux)
 
 temp=  res['temp']
@@ -182,8 +218,8 @@ End = datetime.datetime.now()
 print(End - Start)
 
 ####diagnistic graphs###
-light=meteo_all[0]['Shortwave_Radiation_Downwelling_wattPerMeterSquared'].iloc[int(startTime):int(endTime)].reset_index(drop=True)
-wind=meteo_all[0]['Ten_Meter_Elevation_Wind_Speed_meterPerSecond'].iloc[int(startTime):int(endTime)].reset_index(drop=True)
+light=meteo_all['Shortwave_Radiation_Downwelling_wattPerMeterSquared'].iloc[int(startTime):int(endTime)].reset_index(drop=True)
+wind=meteo_all['Ten_Meter_Elevation_Wind_Speed_meterPerSecond'].iloc[int(startTime):int(endTime)].reset_index(drop=True)
 #times2 = meteo_all[0]['datetime']
 
 fig,axis=plt.subplots(2,1,figsize=(12,6),sharex=True)

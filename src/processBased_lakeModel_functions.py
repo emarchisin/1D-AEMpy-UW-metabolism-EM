@@ -303,8 +303,26 @@ def eddy_diffusivity_pacanowskiPhilander(rho, depth, g, rho_0, ice, area, U10, l
     # kz = ak * (buoy)**(-0.43)
     return(kz)
 
-   
-def provide_meteorology(meteofile, secchifile, windfactor):
+def get_secview(secchifile):
+    if secchifile is not None:
+        secview0 = pd.read_csv(secchifile)
+        secview0['sampledate'] = pd.to_datetime(secview0['sampledate'])
+        secview = secview0.loc[secview0['sampledate'] >= startDate]
+        if secview['sampledate'].min() >= startDate:
+          firstVal = secview.loc[secview['sampledate'] == secview['sampledate'].min(), 'secnview'].values[0]
+          firstRow = pd.DataFrame(data={'sampledate': [startDate], 'secnview':[firstVal]})
+          secview = pd.concat([firstRow, secview], ignore_index=True)
+      
+          
+        secview['dt'] = (secview['sampledate'] - secview['sampledate'][0]).astype('timedelta64[s]') + 1
+        secview['kd'] = 1.7 / secview['secnview']
+        secview['kd'] = secview.set_index('sampledate')['kd'].interpolate(method="linear").values
+    else:
+        secview = None
+    
+    return(secview)
+
+def provide_meteorology(meteofile, windfactor):
 
     meteo = pd.read_csv(meteofile)
     daily_meteo = meteo
@@ -339,25 +357,38 @@ def provide_meteorology(meteofile, secchifile, windfactor):
     ## light
     # Package ID: knb-lter-ntl.31.30 Cataloging System:https://pasta.edirepository.org.
     # Data set title: North Temperate Lakes LTER: Secchi Disk Depth; Other Auxiliary Base Crew Sample Data 1981 - current.
-    if secchifile is not None:
-        secview0 = pd.read_csv(secchifile)
-        secview0['sampledate'] = pd.to_datetime(secview0['sampledate'])
-        secview = secview0.loc[secview0['sampledate'] >= startDate]
-        if secview['sampledate'].min() >= startDate:
-          firstVal = secview.loc[secview['sampledate'] == secview['sampledate'].min(), 'secnview'].values[0]
-          firstRow = pd.DataFrame(data={'sampledate': [startDate], 'secnview':[firstVal]})
-          secview = pd.concat([firstRow, secview], ignore_index=True)
+    
+    
+    return(daily_meteo)
+
+
+#get the first row with data  
+def get_data_start(row):
+    for column_name, value in row.items():
+        try:
+            if isinstance(float(value), float):  # checks if value is numeric
+                return column_name
+        except:
+            continue
+    return None
       
-          
-        secview['dt'] = (secview['sampledate'] - secview['sampledate'][0]).astype('timedelta64[s]') + 1
-        secview['kd'] = 1.7 / secview['secnview']
-        secview['kd'] = secview.set_index('sampledate')['kd'].interpolate(method="linear").values
-    else:
-        secview = None
+
     
-    return([daily_meteo, secview])
-  
+#get a the configuration for a given row
+def get_lake_config (lake_config_file, iteration = 1):
+    df = pd.read_csv(lake_config_file, index_col = 0)
+    first_column = get_data_start(df.loc["Latitude"])
+    col_index = df.columns.get_loc(first_column)
     
+    return df.iloc[:, col_index + iteration - 1]
+
+def get_lake_params (lake_params_file, iteration = 1):
+    df = pd.read_csv(lake_params_file, index_col = 0)
+    first_column = get_data_start(df.loc["CP"])
+    col_index = df.columns.get_loc(first_column)
+    
+    return df.iloc[:, col_index + iteration - 1]
+
 def provide_phosphorus(tpfile, startingDate, startTime):
     phos = pd.read_csv(tpfile)
 

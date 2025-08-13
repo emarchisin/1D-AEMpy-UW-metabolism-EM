@@ -15,13 +15,15 @@ from numba import jit
 #os.chdir("C:/Users/ladwi/Documents/Projects/R/1D-AEMpy/src")
 #os.chdir("D:/bensd/Documents/Python_Workspace/1D-AEMpy/src")
 #os.chdir("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/src")
-from processBased_lakeModel_functions import get_hypsography, provide_meteorology, initial_profile, run_wq_model, wq_initial_profile, provide_phosphorus, do_sat_calc, calc_dens,atmospheric_module, get_secview, get_lake_config, get_lake_params #, heating_module, diffusion_module, mixing_module, convection_module, ice_module
+from processBased_lakeModel_functions import get_hypsography, provide_meteorology, initial_profile, run_wq_model, wq_initial_profile, provide_phosphorus, do_sat_calc, calc_dens,atmospheric_module, get_secview, get_lake_config, get_model_params, get_run_config, get_ice_and_snow #, heating_module, diffusion_module, mixing_module, convection_module, ice_module
 
 
 ## lake configurations
 lake_config = get_lake_config("../input/lake_config.csv", 1)
-lake_params = get_lake_params("../input/lake_params.csv", 1)
-zmax = lake_config['Zmax']
+model_params = get_model_params("../input/model_params.csv", 1)
+#run_config = get_run_config("../input/run_config.csv", 1)
+#ice_and_snow = get_ice_and_snow("../input/ice_and_snow.csv", 1)
+
 windfactor = float(lake_config["WindSpeed"])
 zmax = 25 # maximum lake depth
 nx = 25 * 2 # number of layers we will have
@@ -79,38 +81,45 @@ Start = datetime.datetime.now()
     
 res = run_wq_model(  
 
-    #initial conditions
-    u = deepcopy(u_ini),
-    o2 = deepcopy(wq_ini[0]),
-    docr = deepcopy(wq_ini[1]) * 1.3,
-    docl = 1.0 * volume,
-    pocr = 0.5 * volume,
-    pocl = 0.5 * volume,
-
-    #time & space settings
-    startTime = startTime, 
-    endTime = endTime, 
-    nx = nx, #
-    dt = dt,
-    dx = dx, #
-    timelabels = times,
-    
-    
    
 
-    #meteorology & boundary forcing
-    daily_meteo = meteo_all,
-    secview = None, #secview,
-    phosphorus_data = tp_boundary,
-    oc_load_input = 38  * max(area) / 8760, #= lake_config["OCLoad"] # 38 gC/m2/yr (Hanson et al. 2023) divided by 8760 hr/yr
+    #RUNTIME CONFIG
+    startTime = startTime, #= run_config["start_time"]
+    endTime = endTime,  #= run_config["end_time"]
+    nx = nx, #= run_config["nx"]
+    dt = dt, #= run_config["dt"]
+    dx = dx, #= run_config["dx"]
+    timelabels = times, #= run_config["times"]
+    pgdl_mode = 'on',  #= #= run_config["pgdl_mode"]
+    training_data_path = '../output',  #= run_config["training_data_path"]
+    diffusion_method = 'pacanowskiPhilander', #= run_config["diffusion_method"]#'pacanowskiPhilander',# 'hendersonSellers', 'munkAnderson' 'hondzoStefan'
+    scheme ='implicit', #= run_config["scheme"]
+    
 
-    #lake morphometry
-    area = area,
-    volume = volume,
-    depth = depth,
-    zmax = zmax,
-    outflow_depth = 6.5,
+    #LAKE CONFIG
+    area = area, #already read
+    volume = volume, #already read
+    depth = depth, #already read
+    zmax = zmax, #=lake_config['Zmax'] 
+    outflow_depth = 6.5, #=lake_config['outflow_depth'] 
     mean_depth = sum(volume)/max(area),
+    #hypsometry_id = xxx
+    #lake_id = xxx
+
+    #MODEL PARAMS
+    #initial conditions
+    u = deepcopy(u_ini), #already read
+    o2 = deepcopy(wq_ini[0]), #already read
+    docr = deepcopy(wq_ini[1]) * 1.3, #already read
+    docl = 1.0 * volume, #already read
+    pocr = 0.5 * volume, #already read
+    pocl = 0.5 * volume, #already read
+
+    #meteorology & boundary forcing
+    daily_meteo = meteo_all, #already read
+    secview = None, #secview, 
+    phosphorus_data = tp_boundary, #already read
+    oc_load_input = 38  * max(area) / 8760, #= lake_config["OCLoad"] # 38 gC/m2/yr (Hanson et al. 2023) divided by 8760 hr/yr
 
     #ice & snow dynamics
     ice = False, #= ice_and_snow["ice"]
@@ -125,62 +134,58 @@ res = run_wq_model(
     rho_snow = 250, #= ice_and_snow["rho_snow"]
 
     #mixing and physical transport
-    diffusion_method = 'pacanowskiPhilander',#'pacanowskiPhilander',# 'hendersonSellers', 'munkAnderson' 'hondzoStefan'
-    scheme ='implicit',
-    km = 1.4 * 10**(-7), # 4 * 10**(-6), 
-    k0 = 1 * 10**(-2),
-    weight_kz = 0.5,
-    piston_velocity = 1.0/86400,
-    Cd = 0.0013, # momentum coeff (wind)
-    hydro_res_time_hr = 4.3 * 8760,
-    W_str = None,
-    denThresh = 1e-2,
+    km = 1.4 * 10**(-7), # 4 * 10**(-6),  #=model_params["km"],
+    k0 = 1 * 10**(-2),  #=model_params["k0"],
+    weight_kz = 0.5,  #=model_params["weight_kz"],
+    piston_velocity = 1.0/86400,  #=model_params["piston_velocity"],
+    Cd = 0.0013, # momentum coeff (wind)  #=model_params["Cd"],
+    hydro_res_time_hr = 4.3 * 8760,  #=model_params["hydro_res_time_hr"],
+    W_str = None,  #=model_params["W_str"],
+    denThresh = 1e-2,  #=model_params["denThresh"],
 
     #light & heat fluxes
 
-    kd_light = 0.6, 
-    light_water = 0.125,
-    light_doc = 0.02, #= lake_params["LECDOCR"]
-    light_poc = 0.7, #= lake_params["LECPOCR"]
+    kd_light = 0.6,  #=model_params["kd_light"],
+    light_water = 0.125,  #=model_params["light_water"],
+    light_doc = 0.02, #= model_params["LECDOCR"]
+    light_poc = 0.7, #= model_params["LECPOCR"]
     albedo = 0.01, #= lake_config["Albedo"]
-    eps = 0.97,
-    emissivity = 0.97,
-    sigma = 5.67e-8,
-    sw_factor = 1.0,
-    wind_factor = 1.2,
-    at_factor = 1.0,
-    turb_factor = 1.0,
-    Hgeo = 0.1, # geothermal heat 
+    eps = 0.97,  #=model_params["eps"],
+    emissivity = 0.97,  #=model_params["emissivity"],
+    sigma = 5.67e-8,  #=model_params["sigma"],
+    sw_factor = 1.0,  #=model_params["sw_factor"],
+    wind_factor = 1.2,  #=model_params["wind_factor"],
+    at_factor = 1.0,  #=model_params["at_factor"],
+    turb_factor = 1.0,  #=model_params["turb_factor"],
+    Hgeo = 0.1, # geothermal heat  =  #=model_params["Hgeo"],
 
     #biogeochemical params
-    resp_docr = 0.003/86400,   # = lake_params["RDOCR"]# 0.001 0.0001 s-1
-    resp_docl = 0.05/86400,# = lake_params["RDOCL"] # 0.01 0.05 s-1
-    resp_poc = 0.15/86400,  #= lake_params["RPOCR"] # 0.1 0.001 0.0001 s-1
-    sed_sink = -0.0626/ 86400, #0.01 #-.12 
-    settling_rate = 0.7/86400, #0.3
-    sediment_rate = 0.1/86400,
-    theta_npp = 1.08, #1.08
-    theta_r = 1.08, #= lake_params["RTheta"] #1.08 #1.5 for 104 #1.35 for 106
-    conversion_constant = 1e-4,#0.1
-    k_half = 0.5,
-    p_max = 1/86400,#1
-    IP = 3e-5/86400 ,#0.1, 3e-5
+    resp_docr = 0.003/86400,   # = model_params["RDOCR"]# 0.001 0.0001 s-1
+    resp_docl = 0.05/86400,# = model_params["RDOCL"] # 0.01 0.05 s-1
+    resp_poc = 0.15/86400,  #= model_params["RPOCR"] # 0.1 0.001 0.0001 s-1
+    sed_sink = -0.0626/ 86400, #0.01 #-.12   #=model_params["sed_sink"],
+    settling_rate = 0.7/86400, #0.3  #=model_params["settling_rate"],
+    sediment_rate = 0.1/86400,  #=model_params["sediment_rate"],
+    theta_npp = 1.08, #1.08  #=model_params["theta_npp"],
+    theta_r = 1.08, #= model_params["RTheta"] #1.08 #1.5 for 104 #1.35 for 106
+    conversion_constant = 1e-4,#0.1  #=model_params["conversion_constant"],
+    k_half = 0.5,  #=model_params["k_half"],
+    p_max = 1/86400,#1  #=model_params["p_max"],
+    IP = 3e-5/86400 ,#0.1, 3e-5  #=model_params["IP"],
 
     #carbon pool partitioning
-    prop_oc_docr = 0.8, #0.8
-    prop_oc_docl = 0.05, #0.05
-    prop_oc_pocr = 0.05, #0.05
-    prop_oc_pocl = 0.1, #0.1
+    prop_oc_docr = 0.8, #0.8  #=model_params["prop_oc_docr"],
+    prop_oc_docl = 0.05, #0.05  #=model_params["prop_oc_docl"],
+    prop_oc_pocr = 0.05, #0.05  #=model_params["prop_oc_pocr"],
+    prop_oc_pocl = 0.1, #0.1  #=model_params["prop_oc_pocl"],
 
     #general physical constants
-    p2 = 1,
-    B = 0.61,
-    g = 9.81,
-    meltP = 1,
+    p2 = 1,  #=model_params["p2"],
+    B = 0.61,  #=model_params["B"],
+    g = 9.81,  #=model_params["g"],
+    meltP = 1,  #=model_params["meltP"],
     
-    #runtime config
-    pgdl_mode = 'on', 
-    training_data_path = '../output', #'../output'
+    
     )
    # atm_flux=atm_flux)
 

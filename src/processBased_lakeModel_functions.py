@@ -382,9 +382,24 @@ def get_lake_config (lake_config_file, iteration = 1):
     
     return df.iloc[:, col_index + iteration - 1]
 
-def get_lake_params (lake_params_file, iteration = 1):
+def get_model_params (model_params_file, iteration = 1):
     df = pd.read_csv(lake_params_file, index_col = 0)
     first_column = get_data_start(df.loc["CP"])
+    col_index = df.columns.get_loc(first_column)
+    
+    return df.iloc[:, col_index + iteration - 1]
+
+
+def get_run_config (run_config_file, iteration = 1):
+    df = pd.read_csv(lake_params_file, index_col = 0)
+    first_column = get_data_start(df.loc["nx"])
+    col_index = df.columns.get_loc(first_column)
+    
+    return df.iloc[:, col_index + iteration - 1]
+
+def get_ice_and_snow (ice_and_snow_file, iteration = 1):
+    df = pd.read_csv(lake_params_file, index_col = 0)
+    first_column = get_data_start(df.loc["Hi"])
     col_index = df.columns.get_loc(first_column)
     
     return df.iloc[:, col_index + iteration - 1]

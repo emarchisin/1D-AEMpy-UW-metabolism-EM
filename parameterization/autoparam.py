@@ -21,7 +21,7 @@ gc.enable()
 #os.chdir("/home/robert/Projects/1D-AEMpy/src")
 #os.chdir("C:/Users/ladwi/Documents/Projects/R/1D-AEMpy/src")
 os.chdir("D:/bensd/Documents/Python_Workspace/1D-AEMpy/src")
-from processBased_lakeModel_functions import get_hypsography, provide_meteorology, initial_profile, run_wq_model, wq_initial_profile, provide_phosphorus, do_sat_calc, calc_dens #, heating_module, diffusion_module, mixing_module, convection_module, ice_module
+from processBased_lakeModel_functions import get_hypsography, provide_meteorology, initial_profile, run_wq_model, wq_initial_profile, provide_phosphorus, do_sat_calc, calc_dens, get_secview #, heating_module, diffusion_module, mixing_module, convection_module, ice_module
 
 
 ## lake configurations
@@ -35,6 +35,8 @@ area, depth, volume = get_hypsography(hypsofile = '../input/bathymetry.csv',
                             dx = dx, nx = nx)
                             
 ## atmospheric boundary conditions
+
+secview = get_secview(secchifile = "../input/secchifile.csv")
 meteo_all = provide_meteorology(meteofile = '../input/Mendota_2016_2024_for_1DAEMpy.csv',
                     secchifile = None, 
                     windfactor = 1.0)
@@ -46,8 +48,8 @@ total_runtime =  (365 * n_years) * hydrodynamic_timestep/dt
 startTime =   (138) * hydrodynamic_timestep/dt # DOY in 2016 * 24 hours
 endTime =  (startTime + total_runtime) # * hydrodynamic_timestep/dt) - 1
 
-startingDate = meteo_all[0]['date'][startTime] #* hydrodynamic_timestep/dt]
-endingDate = meteo_all[0]['date'][(endTime-1)]#meteo_all[0]['date'][(startTime + total_runtime)]# * hydrodynamic_timestep/dt -1]
+startingDate = meteo_all['date'][startTime] #* hydrodynamic_timestep/dt]
+endingDate = meteo_all['date'][(endTime-1)]#meteo_all[0]['date'][(startTime + total_runtime)]# * hydrodynamic_timestep/dt -1]
 
 times = pd.date_range(startingDate, endingDate, freq='H')
 
@@ -195,7 +197,7 @@ while len(next(os.walk('D:\\bensd\\Documents\\Python_Workspace\\1D-AEMpy\\parame
         nx = nx,
         dt = dt,
         dx = dx,
-        daily_meteo = meteo_all[0],
+        daily_meteo = meteo_all,
         secview = meteo_all[1],
         phosphorus_data = tp_boundary,
         ice = False,

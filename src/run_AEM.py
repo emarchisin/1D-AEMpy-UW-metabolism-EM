@@ -19,10 +19,10 @@ from processBased_lakeModel_functions import get_hypsography, provide_meteorolog
 
 
 ## lake configurations
-lake_config = get_lake_config("../input/lake_config.csv", 1)
-model_params = get_model_params("../input/model_params.csv", 1)
-#run_config = get_run_config("../input/run_config.csv", 1)
-#ice_and_snow = get_ice_and_snow("../input/ice_and_snow.csv", 1)
+lake_config = get_lake_config("../input/lake_config_test.csv", 1)
+model_params = get_model_params("../input/model_params_test.csv", 1)
+run_config = get_run_config("../input/run_config_test.csv", 1)
+ice_and_snow = get_ice_and_snow("../input/ice_and_snow_test.csv", 1)
 
 windfactor = float(lake_config["WindSpeed"])
 zmax = 25 # maximum lake depth

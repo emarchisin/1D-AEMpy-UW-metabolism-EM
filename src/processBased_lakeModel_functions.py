@@ -380,29 +380,67 @@ def get_lake_config (lake_config_file, iteration = 1):
     first_column = get_data_start(df.loc["Zmax"])
     col_index = df.columns.get_loc(first_column)
     
-    return df.iloc[:, col_index + iteration - 1]
+    col = df.iloc[:, col_index + iteration - 1]
+    def try_cast(x):
+        try:
+            return float(x) if '.' in str(x) or 'e' in str(x).lower() else int(x)
+        except:
+            return x
 
-def get_model_params (model_params_file, iteration = 1):
-    df = pd.read_csv(model_params_file, index_col = 0)
+    col = col.apply(try_cast)
+    return col
+
+def get_model_params(model_params_file, iteration=1):
+    df = pd.read_csv(model_params_file, index_col=0)
+    df = df.replace('None', np.nan) 
+    df.replace({np.nan: None})
     first_column = get_data_start(df.loc["km"])
     col_index = df.columns.get_loc(first_column)
-    
-    return df.iloc[:, col_index + iteration - 1]
+
+    col = df.iloc[:, col_index + iteration - 1]
+
+    def try_cast(x):
+        
+        
+        
+        try:
+            return float(x) if '.' in str(x) or 'e' in str(x).lower() else int(x)
+        except:
+            return x
+
+    return col.apply(try_cast)
+
+
 
 
 def get_run_config (run_config_file, iteration = 1):
     df = pd.read_csv(run_config_file, index_col = 0)
     first_column = get_data_start(df.loc["nx"])
     col_index = df.columns.get_loc(first_column)
-    
-    return df.iloc[:, col_index + iteration - 1]
+    col = df.iloc[:, col_index + iteration - 1]
+    def try_cast(x):
+        try:
+            return float(x) if '.' in str(x) or 'e' in str(x).lower() else int(x)
+        except:
+            return x
+
+    col = col.apply(try_cast)
+    return col
 
 def get_ice_and_snow (ice_and_snow_file, iteration = 1):
     df = pd.read_csv(ice_and_snow_file, index_col = 0)
     first_column = get_data_start(df.loc["Hi"])
     col_index = df.columns.get_loc(first_column)
     
-    return df.iloc[:, col_index + iteration - 1]
+    col = df.iloc[:, col_index + iteration - 1]
+    def try_cast(x):
+        try:
+            return float(x) if '.' in str(x) or 'e' in str(x).lower() else int(x)
+        except:
+            return x
+
+    col = col.apply(try_cast)
+    return col
 
 def provide_phosphorus(tpfile, startingDate, startTime):
     phos = pd.read_csv(tpfile)
@@ -1078,6 +1116,7 @@ def diffusion_module(
             mn[k] = alpha[k] * un[k-1] + (area[k] - 2 * alpha[k]) * un[k] + alpha[k] * un[k+1]
 
     # DERIVED TEMPERATURE OUTPUT FOR NEXT MODULE
+ 
         u = np.linalg.solve(y, mn)
 
     if scheme == 'explicit':
@@ -2487,7 +2526,6 @@ def run_wq_model(
     plt.plot(u, color = 'red')
     
     um_heat[:, idn] = u
-    
     ## (5) ICE AND SNOW
     ice_res = ice_module(
         un = u,
@@ -2537,7 +2575,8 @@ def run_wq_model(
         1+1
     else: 
         kz = u * 0.0
-        
+    
+
     if diffusion_method == 'hendersonSellers':
         kz = eddy_diffusivity_hendersonSellers(dens_u_n2, depth, g, np.mean(dens_u_n2) , ice, area, Uw(n),  43.100948, u, kz, Cd, km, weight_kz, k0) / 1
     elif diffusion_method == 'munkAnderson':
@@ -2546,9 +2585,11 @@ def run_wq_model(
         kz = eddy_diffusivity(dens_u_n2, depth, g, np.mean(dens_u_n2) , ice, area, u, kz) / 86400
     elif diffusion_method == 'pacanowskiPhilander':
         kz = eddy_diffusivity_pacanowskiPhilander(dens_u_n2, depth, g, np.mean(dens_u_n2) , ice, area, Uw(n),  43.100948, u, kz, Cd, km, weight_kz, k0) / 1
-    
+ 
     
     ## (2) DIFFUSION
+    
+    
     diffusion_res = diffusion_module(
         un = u,
         kzn = kz,

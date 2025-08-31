@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import datetime
-from processBased_lakeModel_functions import get_hypsography, provide_meteorology, initial_profile, run_wq_model, wq_initial_profile, provide_phosphorus, do_sat_calc, calc_dens, atmospheric_module, get_secview, get_lake_config, get_model_params, get_run_config, get_ice_and_snow
+from processBased_lakeModel_functions import get_num_data_columns , get_hypsography, provide_meteorology, initial_profile, run_wq_model, wq_initial_profile, provide_phosphorus, do_sat_calc, calc_dens, atmospheric_module, get_secview, get_lake_config, get_model_params, get_run_config, get_ice_and_snow
 
 def print_with_type(label, value):
     print(f"{label}: {value} (type: {type(value).__name__})")
@@ -14,6 +14,7 @@ lake_params = get_model_params("../input/model_params_test.csv", 1)
 run_config = get_run_config("../input/run_config_test.csv", 1)
 ice_and_snow = get_ice_and_snow("../input/ice_and_snow_test.csv", 1)
 
+print(get_num_data_columns("../input/lake_config_test.csv", "Zmax"))
 # === Print lake_config values ===
 print_with_type("Zmax", lake_config["Zmax"])
 print_with_type("WindSpeed (windfactor)", lake_config["WindSpeed"])

@@ -15,7 +15,7 @@ from numba import jit
 #os.chdir("C:/Users/ladwi/Documents/Projects/R/1D-AEMpy/src")
 #os.chdir("D:/bensd/Documents/Python_Workspace/1D-AEMpy/src")
 #os.chdir("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/src")
-from processBased_lakeModel_functions import get_hypsography, provide_meteorology, initial_profile, run_wq_model, wq_initial_profile, provide_phosphorus, do_sat_calc, calc_dens,atmospheric_module, get_secview, get_lake_config, get_model_params, get_run_config, get_ice_and_snow #, heating_module, diffusion_module, mixing_module, convection_module, ice_module
+from processBased_lakeModel_functions import get_hypsography, provide_meteorology, initial_profile, run_wq_model, wq_initial_profile, provide_phosphorus, do_sat_calc, calc_dens,atmospheric_module, get_secview, get_lake_config, get_model_params, get_run_config, get_ice_and_snow , get_num_data_columns#, heating_module, diffusion_module, mixing_module, convection_module, ice_module
 
 
 ## lake configurations
@@ -43,15 +43,26 @@ meteo_all = provide_meteorology(meteofile = '../input/ME_nldas-16-24.csv',
 pd.DataFrame(meteo_all).to_csv("../input/NLDAS-ME-meteo16-24.csv", index = False)
                      
 ## time step discretization 
+
+#get start time from input file
+desired_start = pd.Timestamp(run_config["start_time"])  
+#find the matching index in the meteo file
+startTime = meteo_all.index[meteo_all['date'] == desired_start][0]
+#get the date from that index
+startingDate = meteo_all.loc[startTime, 'date']
 n_years = (8.5) #7
 hydrodynamic_timestep = 24 * dt
 total_runtime =  (365 * n_years) * hydrodynamic_timestep/dt  
-startTime =   (182) * hydrodynamic_timestep/dt # DOY in 2016 * 24 hours 138
+#startTime1 =   (182) * hydrodynamic_timestep/dt # DOY in 2016 * 24 hours 138
 endTime =  (startTime + total_runtime) # * hydrodynamic_timestep/dt) - 1
-
-startingDate = meteo_all['date'][startTime] #* hydrodynamic_timestep/dt]
+#endTime1 =  (startTime1 + total_runtime)
+#startingDate = meteo_all['date'][startTime] #* hydrodynamic_timestep/dt]
 endingDate = meteo_all['date'][(endTime-1)]#meteo_all[0]['date'][(startTime + total_runtime)]# * hydrodynamic_timestep/dt -1]
 
+print ("starting date", startingDate)
+print ("starting time", startTime)
+
+print ("ending time", endTime)
 times = pd.date_range(startingDate, endingDate, freq='H')
 
 nTotalSteps = int(total_runtime)
@@ -77,115 +88,127 @@ tp_boundary = provide_phosphorus(tpfile =  '../input/Mendota_observations_tp_2.c
 tp_boundary = tp_boundary.dropna(subset=['tp'])
 
 Start = datetime.datetime.now()
+num_lakes = get_num_data_columns(
+    "../input/lake_config_test.csv", "Zmax"
+)
 
-res = run_wq_model(  
-
-   
-
-    #RUNTIME CONFIG
-    startTime  = run_config["start_time"],
-    endTime  = run_config["end_time"],
-    nx = run_config["nx"],
-    dt = run_config["dt"],
-    dx = run_config["dx"],
-    timelabels = times, #= run_config["times"]
-    pgdl_mode = run_config["pgdl_mode"],
-    training_data_path = run_config["training_data_path"],
-    diffusion_method = run_config["diffusion_method"],#'pacanowskiPhilander',# 'hendersonSellers', 'munkAnderson' 'hondzoStefan'
-    scheme = run_config["scheme"],
-    
-
-    #LAKE CONFIG
-    area = area, #already read
-    volume = volume, #already read
-    depth = depth, #already read
-    zmax = lake_config['Zmax'] ,
-    outflow_depth =lake_config['outflow_depth'], 
-    mean_depth = sum(volume)/max(area),
-    #hypsometry_id = xxx
-    #lake_id = xxx
-
-    #MODEL PARAMS
-    #initial conditions
-    u = deepcopy(u_ini), #already read
-    o2 = deepcopy(wq_ini[0]), #already read
-    docr = deepcopy(wq_ini[1]) * 1.3, #already read
-    docl = 1.0 * volume, #already read
-    pocr = 0.5 * volume, #already read
-    pocl = 0.5 * volume, #already read
-
-    #meteorology & boundary forcing
-    daily_meteo = meteo_all, #already read
-    secview = None, #secview, 
-    phosphorus_data = tp_boundary, #already read
-    oc_load_input = lake_config["OCLoad"], # 38 gC/m2/yr (Hanson et al. 2023) divided by 8760 hr/yr
-
-    #ice & snow dynamics
-    ice = ice_and_snow["ice"],
-    Hi = ice_and_snow["Hi"],
-    Hs = ice_and_snow["Hs"],
-    Hsi = ice_and_snow["Hsi"],
-    iceT = ice_and_snow["iceT"],
-    supercooled = ice_and_snow["supercooled"],
-    dt_iceon_avg = ice_and_snow["dt_iceon_avg"],
-    Ice_min = ice_and_snow["Ice_min"],
-    KEice = ice_and_snow["KEice"],
-    rho_snow = ice_and_snow["rho_snow"],
-
-    #mixing and physical transport
-    km =model_params["km"],
-    k0 =model_params["k0"],
-    weight_kz =model_params["weight_kz"],
-    piston_velocity =model_params["piston_velocity"],
-    Cd =model_params["Cd"],
-    hydro_res_time_hr =model_params["hydro_res_time_hr"],
-    W_str = None if pd.isna(model_params["W_str"]) else model_params["W_str"],
-    denThresh =model_params["denThresh"],
-
-    #light & heat fluxes
-
-    kd_light =model_params["kd_light"],
-    light_water =model_params["light_water"],
-    light_doc = model_params["LECDOCR"],
-    light_poc = model_params["LECPOCR"],
-    albedo = lake_config["Albedo"],
-    eps =model_params["eps"],
-    emissivity =model_params["emissivity"],
-    sigma =model_params["sigma"],
-    sw_factor =model_params["sw_factor"],
-    wind_factor =model_params["wind_factor"],
-    at_factor =model_params["at_factor"],
-    turb_factor =model_params["turb_factor"],
-    Hgeo =model_params["Hgeo"],
-
-    #biogeochemical params
-    resp_docr  = model_params["RDOCR"],# 0.001 0.0001 s-1
-    resp_docl = model_params["RDOCL"], # 0.01 0.05 s-1
-    resp_poc = model_params["RPOCR"], # 0.1 0.001 0.0001 s-1
-    sed_sink =model_params["sed_sink"],
-    settling_rate =model_params["settling_rate"],
-    sediment_rate =model_params["sediment_rate"],
-    theta_npp =model_params["theta_npp"],
-    theta_r = model_params["RTheta"] ,#1.08 #1.5 for 104 #1.35 for 106
-    conversion_constant =model_params["conversion_constant"],
-    k_half =model_params["k_half"],
-    p_max =model_params["p_max"],
-    IP =model_params["IP"],
-
-    #carbon pool partitioning
-    prop_oc_docr =model_params["prop_oc_docr"],
-    prop_oc_docl =model_params["prop_oc_docl"],
-    prop_oc_pocr =model_params["prop_oc_pocr"],
-    prop_oc_pocl =model_params["prop_oc_pocl"],
-
-    #general physical constants
-    p2 =model_params["p2"],
-    B =model_params["B"],
-    g =model_params["g"],
-    meltP =model_params["meltP"],
-    
-    
+for lake_num in range(1, num_lakes + 1):
+    lake_config = get_lake_config(
+        "../input/lake_config_test.csv", lake_num
     )
+    model_params = get_model_params(
+        "../input/model_params_test.csv", lake_num
+    )
+    run_config = get_run_config(
+        "../input/run_config_test.csv", lake_num
+    )
+    ice_and_snow = get_ice_and_snow(
+        "../input/ice_and_snow_test.csv", lake_num
+    )
+
+    res = run_wq_model(
+        # RUNTIME CONFIG
+        lake_num=lake_num,
+        startTime=startTime - 6.0, #-6 = conversion from UTC to CST
+        endTime=endTime - 6.0,  #-6 = conversion from UTC to CST
+        nx=run_config["nx"],
+        dt=run_config["dt"],
+        dx=run_config["dx"],
+        timelabels=times,  # = run_config["times"]
+        pgdl_mode=run_config["pgdl_mode"],
+        training_data_path=run_config["training_data_path"],
+        diffusion_method=run_config["diffusion_method"],
+        scheme=run_config["scheme"],
+
+        # LAKE CONFIG
+        area=area,  # already read
+        volume=volume,  # already read
+        depth=depth,  # already read
+        zmax=lake_config['Zmax'],
+        outflow_depth=lake_config['outflow_depth'],
+        mean_depth=sum(volume) / max(area),
+
+        # MODEL PARAMS - initial conditions
+        u=deepcopy(u_ini),  # already read
+        o2=deepcopy(wq_ini[0]),  # already read
+        docr=deepcopy(wq_ini[1]) * 1.3,
+        docl=1.0 * volume,
+        pocr=0.5 * volume,
+        pocl=0.5 * volume,
+
+        # meteorology & boundary forcing
+        daily_meteo=meteo_all,
+        secview=None,
+        phosphorus_data=tp_boundary,
+        oc_load_input=lake_config["OCLoad"],
+
+        # ice & snow dynamics
+        ice=ice_and_snow["ice"],
+        Hi=ice_and_snow["Hi"],
+        Hs=ice_and_snow["Hs"],
+        Hsi=ice_and_snow["Hsi"],
+        iceT=ice_and_snow["iceT"],
+        supercooled=ice_and_snow["supercooled"],
+        dt_iceon_avg=ice_and_snow["dt_iceon_avg"],
+        Ice_min=ice_and_snow["Ice_min"],
+        KEice=ice_and_snow["KEice"],
+        rho_snow=ice_and_snow["rho_snow"],
+
+        # mixing and physical transport
+        km=model_params["km"],
+        k0=model_params["k0"],
+        weight_kz=model_params["weight_kz"],
+        piston_velocity=model_params["piston_velocity"],
+        Cd=model_params["Cd"],
+        hydro_res_time_hr=model_params["hydro_res_time_hr"],
+        W_str=(
+            None if pd.isna(model_params["W_str"])
+            else model_params["W_str"]
+        ),
+        denThresh=model_params["denThresh"],
+
+        # light & heat fluxes
+        kd_light=model_params["kd_light"],
+        light_water=model_params["light_water"],
+        light_doc=model_params["LECDOCR"],
+        light_poc=model_params["LECPOCR"],
+        albedo=lake_config["Albedo"],
+        eps=model_params["eps"],
+        emissivity=model_params["emissivity"],
+        sigma=model_params["sigma"],
+        sw_factor=model_params["sw_factor"],
+        wind_factor=model_params["wind_factor"],
+        at_factor=model_params["at_factor"],
+        turb_factor=model_params["turb_factor"],
+        Hgeo=model_params["Hgeo"],
+
+        # biogeochemical params
+        resp_docr=model_params["RDOCR"],
+        resp_docl=model_params["RDOCL"],
+        resp_poc=model_params["RPOCR"],
+        sed_sink=model_params["sed_sink"],
+        settling_rate=model_params["settling_rate"],
+        sediment_rate=model_params["sediment_rate"],
+        theta_npp=model_params["theta_npp"],
+        theta_r=model_params["RTheta"],
+        conversion_constant=model_params["conversion_constant"],
+        k_half=model_params["k_half"],
+        p_max=model_params["p_max"],
+        IP=model_params["IP"],
+
+        # carbon pool partitioning
+        prop_oc_docr=model_params["prop_oc_docr"],
+        prop_oc_docl=model_params["prop_oc_docl"],
+        prop_oc_pocr=model_params["prop_oc_pocr"],
+        prop_oc_pocl=model_params["prop_oc_pocl"],
+
+        # general physical constants
+        p2=model_params["p2"],
+        B=model_params["B"],
+        g=model_params["g"],
+        meltP=model_params["meltP"],
+    )
+
    # atm_flux=atm_flux)
 
 temp=  res['temp']

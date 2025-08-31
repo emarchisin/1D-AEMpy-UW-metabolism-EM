@@ -372,7 +372,26 @@ def get_data_start(row):
             continue
     return None
       
+def get_num_data_columns(csv_path, row_name):
+    # read CSV without forcing any index
+    df = pd.read_csv(csv_path, index_col=0)
 
+    if row_name not in df.index:
+        raise ValueError(f"Row '{row_name}' not found in CSV index.")
+
+    # get the row by name
+    row = df.loc[row_name]
+
+    # find the first numeric column in that row
+    start_col = get_data_start(row)
+    if start_col is None:
+        return 0  # no numeric data found
+
+    # count columns from the first numeric column to the end
+    start_idx = df.columns.get_loc(start_col)
+    num_columns = len(df.columns[start_idx:])
+
+    return num_columns
     
 #get a the configuration for a given row
 def get_lake_config (lake_config_file, iteration = 1):
@@ -2349,7 +2368,9 @@ def run_wq_model(
   W_str = None,
   training_data_path = None,
   timelabels = None,
-  atm_flux=None):
+  atm_flux=None, 
+  lake_num = 1
+  ):
     
   ## linearization of driver data, so model can have dynamic step
   Jsw_fillvals = tuple(daily_meteo.Shortwave_Radiation_Downwelling_wattPerMeterSquared.values[[0, -1]])
@@ -2458,7 +2479,8 @@ def run_wq_model(
     
     #print(idn)
     if idn % 1000 == 0:
-        print(idn)
+        
+        print (f"iteration: {idn} for lake: {lake_num}")
           
     un = deepcopy(u)
     un_initial = un
@@ -2986,6 +3008,8 @@ def run_wq_model(
                }
 
   if training_data_path is not None:
+      training_data_path = os.path.join(training_data_path, f"lake_{lake_num}")
+      os.makedirs(training_data_path, exist_ok=True)  # ensure directory exists
       um_initial = np.transpose(um_initial)
       um_diff = np.transpose(um_diff)
       um_conv = np.transpose(um_conv)

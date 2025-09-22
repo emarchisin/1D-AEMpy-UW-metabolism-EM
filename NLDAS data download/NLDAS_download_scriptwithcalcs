@@ -1,4 +1,4 @@
-##for use in Google Earth Engine
+##for use in Google Earth Engine Code Editor (https://code.earthengine.google.com)
 var bounds = ee.Geometry.Rectangle([-89.48, 43.07, -89.36, 43.14]); //set bounding coordinates, set for Mendota currently
 var start = ee.Date('2024-01-20T00:00'); //set start date
 var end = ee.Date('2024-12-30T12:00'); //set end date

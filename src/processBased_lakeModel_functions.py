@@ -308,7 +308,7 @@ def provide_meteorology(meteofile, secchifile, windfactor):
 
     meteo = pd.read_csv(meteofile)
     daily_meteo = meteo
-    daily_meteo['date'] = pd.to_datetime(daily_meteo['datetime'])
+    daily_meteo['date'] = pd.to_datetime(daily_meteo['datetime'],  format = '%Y-%m-%d %H:%M:%S')
     daily_meteo['Cloud_Cover'] = calc_cc(date = daily_meteo['date'],
                                                 airt = daily_meteo['Air_Temperature_celsius'],
                                                 relh = daily_meteo['Relative_Humidity_percent'],
@@ -317,7 +317,10 @@ def provide_meteorology(meteofile, secchifile, windfactor):
                                                 elev = 258)
 
     
-    daily_meteo['dt'] = (daily_meteo['date'] - daily_meteo['date'][0]).astype('timedelta64[s]') + 1
+   #daily_meteo['dt'] = (daily_meteo['date'] - daily_meteo['date'][0]).astype('timedelta64[s]') + 1
+    time_diff = (daily_meteo['date'] - daily_meteo['date'][0]).astype('timedelta64[s]')
+    #time_diff = (daily_meteo['date'] - daily_meteo['date'].iloc[0])
+    daily_meteo['dt'] =time_diff.dt.total_seconds() + 1
     daily_meteo['ea'] = (daily_meteo['Relative_Humidity_percent'] * 
       (4.596 * np.exp((17.27*(daily_meteo['Air_Temperature_celsius'])) /
       (237.3 + (daily_meteo['Air_Temperature_celsius']) ))) / 100)
@@ -349,7 +352,8 @@ def provide_meteorology(meteofile, secchifile, windfactor):
           secview = pd.concat([firstRow, secview], ignore_index=True)
       
           
-        secview['dt'] = (secview['sampledate'] - secview['sampledate'][0]).astype('timedelta64[s]') + 1
+        #secview['dt'] = (secview['sampledate'] - secview['sampledate'][0]).astype('timedelta64[s]') + 1
+        secview['dt'] = (secview['sampledate'] - secview['sampledate'].iloc[0]).dt.total_seconds() + 1
         secview['kd'] = 1.7 / secview['secnview']
         secview['kd'] = secview.set_index('sampledate')['kd'].interpolate(method="linear").values
     else:
@@ -370,7 +374,9 @@ def provide_phosphorus(tpfile, startingDate, startTime):
         daily_tp.loc[-1] = [startingDate, 'epi', daily_tp['tp'].iloc[0], startingDate, daily_tp['ditt'].iloc[0]]  # adding a row
         daily_tp.index = daily_tp.index + 1  # shifting index
         daily_tp.sort_index(inplace=True) 
-    daily_tp['dt'] = (daily_tp['date'] - daily_tp['date'][0]).astype('timedelta64[s]') + startTime 
+    #daily_tp['dt'] = (daily_tp['date'] - daily_tp['date'][0]).astype('timedelta64[s]') + startTime
+    time_diff = (daily_tp['date'] - daily_tp['date'].iloc[0]).astype('timedelta64[s]')
+    daily_tp['dt'] =time_diff.dt.total_seconds() + startTime
 
     return(daily_tp)
 
@@ -1917,7 +1923,7 @@ def prodcons_module(
         #"Production and destruction term for a simple linear model."
         o2n, docrn, docln, pocrn, pocln = y
         resp_docr, resp_docln, resp_poc = a
-        consumption = consumption
+        consumption = consumption.item() #change 8/21
         p = [[0, 0, 0, 0, 0],
          [0, 0, 0, 0, 0],
          [0, 0, 0, 0, 0],

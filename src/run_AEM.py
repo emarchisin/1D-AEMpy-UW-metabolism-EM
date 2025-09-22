@@ -47,7 +47,7 @@ endingDate = meteo_all[0]['date'][(endTime-1)]#meteo_all[0]['date'][(startTime +
 times = pd.date_range(startingDate, endingDate, freq='H')
 
 nTotalSteps = int(total_runtime)
-atm_flux_output = np.zeros(nTotalSteps,) 
+#atm_flux_output = np.zeros(nTotalSteps,) 
 
 ## here we define our initial profile
 u_ini = initial_profile(initfile = '../input/observedTemp.txt', nx = nx, dx = dx,

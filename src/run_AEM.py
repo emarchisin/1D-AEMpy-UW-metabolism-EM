@@ -15,7 +15,7 @@ from numba import jit
 #os.chdir("C:/Users/ladwi/Documents/Projects/R/1D-AEMpy/src")
 #os.chdir("D:/bensd/Documents/Python_Workspace/1D-AEMpy/src")
 #os.chdir("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/src")
-from processBased_lakeModel_functions import get_hypsography, provide_meteorology, initial_profile, run_wq_model, wq_initial_profile, provide_phosphorus, do_sat_calc, calc_dens,atmospheric_module, get_secview, get_lake_config, get_model_params, get_run_config, get_ice_and_snow , get_num_data_columns#, heating_module, diffusion_module, mixing_module, convection_module, ice_module
+from processBased_lakeModel_functions import get_hypsography, provide_meteorology, initial_profile, run_wq_model, wq_initial_profile, provide_phosphorus, provide_carbon, do_sat_calc, calc_dens,atmospheric_module, get_secview, get_lake_config, get_model_params, get_run_config, get_ice_and_snow , get_num_data_columns#, heating_module, diffusion_module, mixing_module, convection_module, ice_module
 
 
 ## lake configurations
@@ -82,10 +82,18 @@ tp_boundary = provide_phosphorus(tpfile =  '../input/Mendota_observations_tp_2.c
                                  startingDate = startingDate,
                                  startTime = startTime)
 
+
+
 #ice_and_snow = get_ice_and_snow("../input/ice_and_snow.csv")
 
 
 tp_boundary = tp_boundary.dropna(subset=['tp'])
+
+carbon = provide_carbon(docfile =  '../input/peter_doc.csv', 
+                                 startingDate=pd.to_datetime("2022-05-30 09:00:00"),
+                                 startTime = startTime)
+
+carbon = carbon.dropna(subset=['doc_mgl'])
 
 Start = datetime.datetime.now()
 num_lakes = get_num_data_columns(
@@ -140,7 +148,7 @@ for lake_num in range(1, num_lakes + 1):
         daily_meteo=meteo_all,
         secview=None,
         phosphorus_data=tp_boundary,
-        oc_load_input=lake_config["OCLoad"],
+        oc_load_input=carbon,
 
         # ice & snow dynamics
         ice=ice_and_snow["ice"],

@@ -477,6 +477,47 @@ def provide_phosphorus(tpfile, startingDate, startTime):
 
     return(daily_tp)
 
+
+def provide_carbon(docfile, startingDate, startTime):
+    # Read DOC input file
+    doc = pd.read_csv(docfile)
+    doc['date'] = pd.to_datetime(doc['datetime'])
+
+    # Filter data starting from model start date
+    daily_doc = doc.loc[
+    (doc['date'] >= startingDate) & (doc['depth'] == 4)].copy()
+    daily_doc['ditt'] = abs(daily_doc['date'] - startingDate)
+
+    # Rename/standardize columns for model consistency
+    daily_doc = daily_doc.rename(columns={
+        'lake': 'site',
+        'unit': 'units',
+        'variable': 'var',
+        'observation': 'doc_mgl'
+    })
+
+    # If startingDate precedes data, insert an initial row
+    if startingDate < daily_doc['date'].min():
+        first_row = {
+            'id': -1,
+            'datetime': startingDate,
+            'site': doc['lake'].iloc[0],
+            'depth': doc['depth'].iloc[0],
+            'var': doc['variable'].iloc[0],
+            'units': doc['unit'].iloc[0],
+            'doc_mgl': doc['observation'].iloc[0],
+            'date': startingDate,
+            'ditt': (daily_doc['date'].iloc[0] - startingDate)
+        }
+        daily_doc = pd.concat([pd.DataFrame([first_row]), daily_doc], ignore_index=True)
+
+    # Compute time offset from simulation start
+    
+
+    daily_doc['dt'] = (daily_doc['date'] - daily_doc['date'].iloc[0]).dt.total_seconds() + startTime
+
+    return daily_doc
+
 def initial_profile(initfile, nx, dx, depth, startDate):
   #meteo = processed_meteo
   #startDate = meteo['date'].min()
@@ -2396,6 +2437,11 @@ def run_wq_model(
   PP = interp1d(daily_meteo.dt.values, daily_meteo.Precipitation_millimeterPerDay.values, kind = "linear", fill_value=PP_fillvals, bounds_error=False)
   TP_fillvals = tuple(phosphorus_data.tp.values[[0,-1]])
   TP = interp1d(phosphorus_data.dt.values, phosphorus_data.tp.values, kind = "linear", fill_value=TP_fillvals, bounds_error=False)
+
+#carbon interpol
+  carbon_fillvals = tuple(oc_load_input.doc_mgl.values[[0,-1]])
+  carbon = interp1d(oc_load_input['dt'].values, oc_load_input['doc_mgl'].values,
+              kind="linear", fill_value="extrapolate", bounds_error=False)
   
   
   step_times = np.arange(startTime*dt, endTime*dt, dt)
@@ -2465,17 +2511,19 @@ def run_wq_model(
       return kd_light
   
     
-  # Calculating per-depth OC load
-  perdepth_oc = oc_load_input / int(outflow_depth * 2)
-  perdepth_docr = perdepth_oc * prop_oc_docr
-  perdepth_docl = perdepth_oc * prop_oc_docl
-  perdepth_pocr = perdepth_oc * prop_oc_pocl
-  perdepth_pocl = perdepth_oc * prop_oc_pocl
+ 
   
   #breakpoint()
   #times = np.arange(startTime, endTime, dt)
   times = np.arange(startTime * dt, endTime * dt, dt)
   for idn, n in enumerate(times):
+
+      # Calculating per-depth OC load
+    perdepth_oc = carbon(n) / int(outflow_depth * 2)
+    perdepth_docr = perdepth_oc * prop_oc_docr
+    perdepth_docl = perdepth_oc * prop_oc_docl
+    perdepth_pocr = perdepth_oc * prop_oc_pocl
+    perdepth_pocl = perdepth_oc * prop_oc_pocl
     
     #print(idn)
     if idn % 1000 == 0:

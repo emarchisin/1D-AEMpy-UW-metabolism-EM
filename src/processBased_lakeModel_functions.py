@@ -335,7 +335,9 @@ def provide_meteorology(meteofile, windfactor):
                                                 elev = 258)
 
     
-    daily_meteo['dt'] = (daily_meteo['date'] - daily_meteo['date'][0]).astype('timedelta64[s]') + 1
+    #daily_meteo['dt'] = (daily_meteo['date'] - daily_meteo['date'][0]).astype('timedelta64[s]') + 1
+    time_diff = (daily_meteo['date'] - daily_meteo['date'][0]).astype('timedelta64[s]')
+    daily_meteo['dt'] =time_diff.dt.total_seconds() + 1.0
     daily_meteo['ea'] = (daily_meteo['Relative_Humidity_percent'] * 
       (4.596 * np.exp((17.27*(daily_meteo['Air_Temperature_celsius'])) /
       (237.3 + (daily_meteo['Air_Temperature_celsius']) ))) / 100)
@@ -473,8 +475,9 @@ def provide_phosphorus(tpfile, startingDate, startTime):
         daily_tp.loc[-1] = [startingDate, 'epi', daily_tp['tp'].iloc[0], startingDate, daily_tp['ditt'].iloc[0]]  # adding a row
         daily_tp.index = daily_tp.index + 1  # shifting index
         daily_tp.sort_index(inplace=True) 
-    daily_tp['dt'] = (daily_tp['date'] - daily_tp['date'][0]).astype('timedelta64[s]') + startTime 
-
+    #daily_tp['dt'] = (daily_tp['date'] - daily_tp['date'].iloc[0]).astype('timedelta64[s]') + startTime 
+    time_diff = (daily_tp['date'] - daily_tp['date'].iloc[0]).astype('timedelta64[s]')
+    daily_tp['dt'] =time_diff.dt.total_seconds() + startTime
     return(daily_tp)
 
 
@@ -575,7 +578,7 @@ def wq_initial_profile(initfile, nx, dx, depth, volume, startDate):
   
   return(u)
 
-def get_hypsography(hypsofile, dx, nx):
+def get_hypsography(hypsofile, dx, nx, outflow_depth=None):
   hyps = pd.read_csv(hypsofile)
   out_depths = np.linspace(0, nx*dx, nx+1)
   area_fun = interp1d(hyps.Depth_meter.values, hyps.Area_meterSquared.values)
@@ -596,7 +599,16 @@ def get_hypsography(hypsofile, dx, nx):
   depth = 1/2 * (depth[:-1] + depth[1:])
   area = 1/2 * (area[:-1] + area[1:])
   
-  return([area, depth, volume])
+  if outflow_depth is not None:
+      mask=depth<=(outflow_depth+0.25) #depths off set by 0.25m, corrects for difference
+      hypso_weight= np.zeros_like(volume)
+      total_volume=np.sum(volume[mask])
+      hypso_weight[mask]=volume[mask]/total_volume
+  else: 
+        total_volume=np.sum(volume)
+        hypso_weight=volume/total_volume
+  
+  return([area, depth, volume, hypso_weight])
 
 def longwave(cc, sigma, Tair, ea, emissivity, Jlw):  # longwave radiation into
   Tair = Tair + 273.15
@@ -2335,6 +2347,7 @@ def run_wq_model(
   volume,
   depth,
   zmax,
+  hypso_weight,
   nx,
   dt,
   dx,
@@ -2519,7 +2532,7 @@ def run_wq_model(
   for idn, n in enumerate(times):
 
       # Calculating per-depth OC load
-    perdepth_oc = carbon(n) / int(outflow_depth * 2)
+    perdepth_oc = carbon(n) * hypso_weight
     perdepth_docr = perdepth_oc * prop_oc_docr
     perdepth_docl = perdepth_oc * prop_oc_docl
     perdepth_pocr = perdepth_oc * prop_oc_pocl
@@ -2907,14 +2920,15 @@ def run_wq_model(
     
     ## OC Outflow
     # Calculating per-depth OC load
-    outflow_layers = outflow_depth * 2
-    volume_out = ((1 / hydro_res_time_hr) * sum(volume)) / outflow_layers
+    #outflow_layers = outflow_depth * 2
+    total_outflow = ((1 / hydro_res_time_hr) * sum(volume))
+    volume_out=total_outflow*hypso_weight
     
     for i in range(0,int(outflow_layers)):
-        docr[i] -= docr[i] / volume[i] * volume_out
-        docl[i] -= docl[i] / volume[i] * volume_out
-        pocr[i] -= pocr[i] / volume[i] * volume_out
-        pocl[i] -= pocl[i] / volume[i] * volume_out
+        docr[i] -= docr[i] / volume[i] * volume_out[i]
+        docl[i] -= docl[i] / volume[i] * volume_out[i]
+        pocr[i] -= pocr[i] / volume[i] * volume_out[i]
+        pocl[i] -= pocl[i] / volume[i] * volume_out[i]
     
     #print(type(pocl))
     

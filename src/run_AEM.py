@@ -18,82 +18,6 @@ from numba import jit
 from processBased_lakeModel_functions import get_hypsography, provide_meteorology, initial_profile, run_wq_model, wq_initial_profile, provide_phosphorus, provide_carbon, do_sat_calc, calc_dens,atmospheric_module, get_secview, get_lake_config, get_model_params, get_run_config, get_ice_and_snow , get_num_data_columns#, heating_module, diffusion_module, mixing_module, convection_module, ice_module
 
 
-## lake configurations
-lake_config = get_lake_config("../input/lake_config_test.csv", 1)
-model_params = get_model_params("../input/model_params_test.csv", 1)
-run_config = get_run_config("../input/run_config_test.csv", 1)
-ice_and_snow = get_ice_and_snow("../input/ice_and_snow_test.csv", 1)
-
-windfactor = float(lake_config["WindSpeed"])
-zmax = 25 # maximum lake depth
-nx = 25 * 2 # number of layers we will have
-dt = 3600 # 24 hours times 60 min/hour times 60 seconds/min to convert s to day
-dx = zmax/nx # spatial step
-
-## area and depth values of our lake 
-area, depth, volume = get_hypsography(hypsofile = '../input/bathymetry.csv',
-                            dx = dx, nx = nx)
-
-                
-## atmospheric boundary conditions
-#secview = get_secview(secchifile = "../input/secchifile.csv")  
-meteo_all = provide_meteorology(meteofile = '../input/ME_nldas-16-24.csv', 
-                    windfactor = windfactor)
-
-pd.DataFrame(meteo_all).to_csv("../input/NLDAS-ME-meteo16-24.csv", index = False)
-                     
-## time step discretization 
-
-#get start time from input file
-desired_start = pd.Timestamp(run_config["start_time"])  
-#find the matching index in the meteo file
-startTime = meteo_all.index[meteo_all['date'] == desired_start][0]
-#get the date from that index
-startingDate = meteo_all.loc[startTime, 'date']
-n_years = (8.5) #7
-hydrodynamic_timestep = 24 * dt
-total_runtime =  (365 * n_years) * hydrodynamic_timestep/dt  
-#startTime1 =   (182) * hydrodynamic_timestep/dt # DOY in 2016 * 24 hours 138
-endTime =  (startTime + total_runtime) # * hydrodynamic_timestep/dt) - 1
-#endTime1 =  (startTime1 + total_runtime)
-#startingDate = meteo_all['date'][startTime] #* hydrodynamic_timestep/dt]
-endingDate = meteo_all['date'][(endTime-1)]#meteo_all[0]['date'][(startTime + total_runtime)]# * hydrodynamic_timestep/dt -1]
-
-print ("starting date", startingDate)
-print ("starting time", startTime)
-
-print ("ending time", endTime)
-times = pd.date_range(startingDate, endingDate, freq='H')
-
-nTotalSteps = int(total_runtime)
-atm_flux_output = np.zeros(nTotalSteps,) 
-
-## here we define our initial profile
-u_ini = initial_profile(initfile = '../input/observedTemp.txt', nx = nx, dx = dx,
-                     depth = depth,
-                     startDate = startingDate) 
-
-wq_ini = wq_initial_profile(initfile = '../input/mendota_driver_data_v3.csv', nx = nx, dx = dx,
-                     depth = depth, 
-                     volume = volume,
-                     startDate = startingDate)
-
-tp_boundary = provide_phosphorus(tpfile =  '../input/Mendota_observations_tp_2.csv', 
-                                 startingDate = startingDate,
-                                 startTime = startTime)
-
-
-
-#ice_and_snow = get_ice_and_snow("../input/ice_and_snow.csv")
-
-
-tp_boundary = tp_boundary.dropna(subset=['tp'])
-
-carbon = provide_carbon(docfile =  '../input/peter_doc.csv', 
-                                 startingDate=pd.to_datetime("2022-05-30 09:00:00"),
-                                 startTime = startTime)
-
-carbon = carbon.dropna(subset=['doc_mgl'])
 
 Start = datetime.datetime.now()
 num_lakes = get_num_data_columns(
@@ -101,6 +25,7 @@ num_lakes = get_num_data_columns(
 )
 
 for lake_num in range(1, num_lakes + 1):
+   
     lake_config = get_lake_config(
         "../input/lake_config_test.csv", lake_num
     )
@@ -113,7 +38,60 @@ for lake_num in range(1, num_lakes + 1):
     ice_and_snow = get_ice_and_snow(
         "../input/ice_and_snow_test.csv", lake_num
     )
+    windfactor = float(lake_config["WindSpeed"])
+    zmax = lake_config['Zmax']
+    nx = int(run_config["nx"])# number of layers we will have
+    dt = float(run_config["dt"])# 24 hours times 60 min/hour times 60 seconds/min to convert s to day
+    dx = float(run_config["dx"]) # spatial step
+    ## area and depth values of our lake 
+    area, depth, volume = get_hypsography(hypsofile = run_config["hypso_ini_file"],
+                            dx = dx, nx = nx)
 
+                
+    
+    meteo_all = provide_meteorology(meteofile = run_config["meteo_ini_file"], 
+                    windfactor = windfactor)
+
+    pd.DataFrame(meteo_all).to_csv("../input/NLDAS-ME-meteo16-24.csv", index = False)
+                     
+    ## time step discretization 
+
+    #get start time from input file
+    desired_start = pd.Timestamp(run_config["start_time"])  
+    #find the matching index in the meteo file
+    startTime = meteo_all.index[meteo_all['date'] == desired_start][0]
+    #get the date from that index
+    startingDate = meteo_all.loc[startTime, 'date']
+    n_years = (8.5) #7
+    hydrodynamic_timestep = 24 * dt
+    total_runtime =  (365 * n_years) * hydrodynamic_timestep/dt  
+    
+    endTime =  (startTime + total_runtime) 
+  
+    endingDate = meteo_all['date'][(endTime-1)]
+
+    print ("starting date", startingDate)
+    print ("starting time", startTime)
+
+    print ("ending time", endTime)
+    times = pd.date_range(startingDate, endingDate, freq='H')
+
+    nTotalSteps = int(total_runtime)
+    atm_flux_output = np.zeros(nTotalSteps,) 
+    u_ini = initial_profile(initfile = run_config["u_ini_file"], nx = nx, dx = dx,
+                     depth = depth,
+                     startDate = startingDate) 
+    wq_ini = wq_initial_profile(initfile = run_config["wq_ini_file"], nx = nx, dx = dx,
+                     depth = depth, 
+                     volume = volume,
+                     startDate = startingDate)
+    tp_boundary = provide_phosphorus(tpfile =  run_config["tp_ini_file"], 
+                                 startingDate = startingDate,
+                                 startTime = startTime)
+    carbon = provide_carbon(docfile =  run_config["doc_ini_file"], 
+                                 startingDate=pd.to_datetime("2022-05-30 09:00:00"),
+                                 startTime = startTime)
+    carbon = carbon.dropna(subset=['doc_mgl'])
     res = run_wq_model(
         # RUNTIME CONFIG
         lake_num=lake_num,

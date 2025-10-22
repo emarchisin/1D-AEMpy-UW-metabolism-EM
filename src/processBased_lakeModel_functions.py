@@ -481,40 +481,46 @@ def provide_phosphorus(tpfile, startingDate, startTime):
 def provide_carbon(docfile, startingDate, startTime):
     # Read DOC input file
     doc = pd.read_csv(docfile)
-    doc['date'] = pd.to_datetime(doc['datetime'])
+    doc['datetime'] = pd.to_datetime(doc['datetime'])
+    doc["date"] = doc["datetime"]
+    full_range = pd.date_range(
+        start = doc['date'].min(), 
+        end = doc['date'].max(),
+        freq = "H"
+    )
+    expanded = pd.DataFrame({"datetime": full_range})
+    expanded = expanded.merge(doc, on = "datetime", how = "left")
+    expanded = expanded.ffill()
+    doc = expanded
 
     # Filter data starting from model start date
     daily_doc = doc.loc[
-    (doc['date'] >= startingDate) & (doc['depth'] == 4)].copy()
+    (doc['date'] >= startingDate) ]
     daily_doc['ditt'] = abs(daily_doc['date'] - startingDate)
 
-    # Rename/standardize columns for model consistency
-    daily_doc = daily_doc.rename(columns={
-        'lake': 'site',
-        'unit': 'units',
-        'variable': 'var',
-        'observation': 'doc_mgl'
-    })
+   
 
     # If startingDate precedes data, insert an initial row
     if startingDate < daily_doc['date'].min():
         first_row = {
-            'id': -1,
             'datetime': startingDate,
-            'site': doc['lake'].iloc[0],
-            'depth': doc['depth'].iloc[0],
-            'var': doc['variable'].iloc[0],
-            'units': doc['unit'].iloc[0],
-            'doc_mgl': doc['observation'].iloc[0],
+            'discharge': doc['discharge'].iloc[0],
+            'doc_mgl': doc['doc_mgl'].iloc[0],
             'date': startingDate,
             'ditt': (daily_doc['date'].iloc[0] - startingDate)
         }
         daily_doc = pd.concat([pd.DataFrame([first_row]), daily_doc], ignore_index=True)
 
     # Compute time offset from simulation start
-    
+    print("Unique datetimes in daily_doc:")
+    print(daily_doc['date'].unique())
+    print("Shape:", daily_doc.shape)
 
     daily_doc['dt'] = (daily_doc['date'] - daily_doc['date'].iloc[0]).dt.total_seconds() + startTime
+    #compute total carbon load as doc_mgl * discharge
+    daily_doc['total_carbon'] = daily_doc['doc_mgl'] * daily_doc['discharge']
+
+    #fill in hourly times
 
     return daily_doc
 
@@ -2439,8 +2445,8 @@ def run_wq_model(
   TP = interp1d(phosphorus_data.dt.values, phosphorus_data.tp.values, kind = "linear", fill_value=TP_fillvals, bounds_error=False)
 
 #carbon interpol
-  carbon_fillvals = tuple(oc_load_input.doc_mgl.values[[0,-1]])
-  carbon = interp1d(oc_load_input['dt'].values, oc_load_input['doc_mgl'].values,
+  carbon_fillvals = tuple(oc_load_input.total_carbon.values[[0,-1]])
+  carbon = interp1d(oc_load_input['dt'].values, oc_load_input['total_carbon'].values,
               kind="linear", fill_value="extrapolate", bounds_error=False)
   
   

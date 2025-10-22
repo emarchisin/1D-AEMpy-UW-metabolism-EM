@@ -66,31 +66,31 @@ print ("starting time", startTime)
 def provide_carbon(docfile, startingDate, startTime):
     # Read DOC input file
     doc = pd.read_csv(docfile)
-    doc['date'] = pd.to_datetime(doc['datetime'])
+    doc['datetime'] = pd.to_datetime(doc['datetime'])
+    doc["date"] = doc["datetime"]
+    full_range = pd.date_range(
+        start = doc['date'].min(), 
+        end = doc['date'].max(),
+        freq = "H"
+    )
+    expanded = pd.DataFrame({"datetime": full_range})
+    expanded = expanded.merge(doc, on = "datetime", how = "left")
+    expanded = expanded.ffill()
+    doc = expanded
 
     # Filter data starting from model start date
     daily_doc = doc.loc[
-    (doc['date'] >= startingDate) & (doc['depth'] == 4)].copy()
+    (doc['date'] >= startingDate) ]
     daily_doc['ditt'] = abs(daily_doc['date'] - startingDate)
 
-    # Rename/standardize columns for model consistency
-    daily_doc = daily_doc.rename(columns={
-        'lake': 'site',
-        'unit': 'units',
-        'variable': 'var',
-        'observation': 'doc_mgl'
-    })
+   
 
     # If startingDate precedes data, insert an initial row
     if startingDate < daily_doc['date'].min():
         first_row = {
-            'id': -1,
             'datetime': startingDate,
-            'site': doc['lake'].iloc[0],
-            'depth': doc['depth'].iloc[0],
-            'var': doc['variable'].iloc[0],
-            'units': doc['unit'].iloc[0],
-            'doc_mgl': doc['observation'].iloc[0],
+            'discharge': doc['discharge'].iloc[0],
+            'doc_mgl': doc['doc_mgl'].iloc[0],
             'date': startingDate,
             'ditt': (daily_doc['date'].iloc[0] - startingDate)
         }
@@ -102,19 +102,23 @@ def provide_carbon(docfile, startingDate, startTime):
     print("Shape:", daily_doc.shape)
 
     daily_doc['dt'] = (daily_doc['date'] - daily_doc['date'].iloc[0]).dt.total_seconds() + startTime
+    #compute total carbon load as doc_mgl * discharge
+    daily_doc['total_carbon'] = daily_doc['doc_mgl'] * daily_doc['discharge']
+
+    #fill in hourly times
 
     return daily_doc
 
 
 
-carbon = provide_carbon(docfile =  '../input/peter_doc.csv', 
+carbon = provide_carbon(docfile =  '../input/test_doc.csv', 
                                  startingDate=pd.to_datetime("2022-05-30 09:00:00"),
                                  startTime = startTime)
 
-carbon = carbon.dropna(subset=['doc_mgl'])
+carbon = carbon.dropna(subset=['total_carbon'])
 
-TP_fillvals = tuple(carbon.doc_mgl.values[[0,-1]])
-TP = interp1d(carbon['dt'].values, carbon['doc_mgl'].values,
+TP_fillvals = tuple(carbon.total_carbon.values[[0,-1]])
+TP = interp1d(carbon['dt'].values, carbon['total_carbon'].values,
               kind="linear", fill_value="extrapolate", bounds_error=False)
 
 

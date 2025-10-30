@@ -14,7 +14,7 @@ from numba import jit
 #os.chdir("/home/robert/Projects/1D-AEMpy/src")
 #os.chdir("C:/Users/ladwi/Documents/Projects/R/1D-AEMpy/src")
 #os.chdir("D:/bensd/Documents/Python_Workspace/1D-AEMpy/src")
-os.chdir("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/src")
+#os.chdir("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/src")
 from processBased_lakeModel_functions import get_hypsography, provide_meteorology, initial_profile, run_wq_model, wq_initial_profile, provide_phosphorus, provide_carbon, do_sat_calc, calc_dens,atmospheric_module, get_secview, get_lake_config, get_model_params, get_run_config, get_ice_and_snow , get_num_data_columns#, heating_module, diffusion_module, mixing_module, convection_module, ice_module
 
 
@@ -44,8 +44,10 @@ for lake_num in range(1, num_lakes + 1):
     dt = float(run_config["dt"])# 24 hours times 60 min/hour times 60 seconds/min to convert s to day
     dx = float(run_config["dx"]) # spatial step
     ## area and depth values of our lake 
-    area, depth, volume = get_hypsography(hypsofile = run_config["hypso_ini_file"],
-                            dx = dx, nx = nx)
+    area, depth, volume, hypso_weight = get_hypsography(hypsofile = '../input/bathymetry.csv',
+                            dx = dx, nx = nx, outflow_depth=float(lake_config["outflow_depth"]))
+    #area, depth, volume = get_hypsography(hypsofile = '../input/bathymetry.csv',
+      #                      dx = dx, nx = nx)
 
                 
     

@@ -336,8 +336,10 @@ def provide_meteorology(meteofile, windfactor):
 
     
     #daily_meteo['dt'] = (daily_meteo['date'] - daily_meteo['date'][0]).astype('timedelta64[s]') + 1
-    time_diff = (daily_meteo['date'] - daily_meteo['date'][0]).astype('timedelta64[s]')
-    daily_meteo['dt'] =time_diff.dt.total_seconds() + 1.0
+    #time_diff = (daily_meteo['date'] - daily_meteo['date'][0]).astype('timedelta64[s]')
+    #daily_meteo['dt'] =time_diff.dt.total_seconds() + 1.0
+    time_diff = daily_meteo['date'] - daily_meteo['date'].iloc[0]
+    daily_meteo['dt'] = time_diff.dt.total_seconds() + 1.0
     daily_meteo['ea'] = (daily_meteo['Relative_Humidity_percent'] * 
       (4.596 * np.exp((17.27*(daily_meteo['Air_Temperature_celsius'])) /
       (237.3 + (daily_meteo['Air_Temperature_celsius']) ))) / 100)
@@ -475,9 +477,11 @@ def provide_phosphorus(tpfile, startingDate, startTime):
         daily_tp.loc[-1] = [startingDate, 'epi', daily_tp['tp'].iloc[0], startingDate, daily_tp['ditt'].iloc[0]]  # adding a row
         daily_tp.index = daily_tp.index + 1  # shifting index
         daily_tp.sort_index(inplace=True) 
-    #daily_tp['dt'] = (daily_tp['date'] - daily_tp['date'].iloc[0]).astype('timedelta64[s]') + startTime 
-    time_diff = (daily_tp['date'] - daily_tp['date'].iloc[0]).astype('timedelta64[s]')
-    daily_tp['dt'] =time_diff.dt.total_seconds() + startTime
+   # daily_tp['dt'] = (daily_tp['date'] - daily_tp['date'].iloc[0]).astype('timedelta64[s]') + startTime 
+    #time_diff = (daily_tp['date'] - daily_tp['date'].iloc[0]).astype('timedelta64[s]')
+    #daily_tp['dt'] =time_diff.dt.total_seconds() + startTime
+    time_diff = daily_tp['date'] - daily_tp['date'].iloc[0]
+    daily_tp['dt'] = time_diff.dt.total_seconds() + startTime
     return(daily_tp)
 
 
@@ -585,6 +589,7 @@ def wq_initial_profile(initfile, nx, dx, depth, volume, startDate):
   return(u)
 
 def get_hypsography(hypsofile, dx, nx, outflow_depth=None):
+#def get_hypsography(hypsofile, dx, nx):
   hyps = pd.read_csv(hypsofile)
   out_depths = np.linspace(0, nx*dx, nx+1)
   area_fun = interp1d(hyps.Depth_meter.values, hyps.Area_meterSquared.values)
@@ -2076,22 +2081,47 @@ def prodcons_module(
     # light attenuation
     
     
-    def fun(y, a, consumption):
+    #def fun(y, a, consumption):
         #"Production and destruction term for a simple linear model."
-        o2n, docrn, docln, pocrn, pocln = y
-        resp_docr, resp_docln, resp_poc = a
-        consumption = consumption
-        p = [[0, 0, 0, 0, 0],
-         [0, 0, 0, 0, 0],
-         [0, 0, 0, 0, 0],
-         [0, 0, 0, 0, 0],
-         [0, 0, 0, 0, 0]]
-        d = [[0, 32/12 * (docrn * resp_docr * consumption), 32/12 *(docln * resp_docl * consumption), 32/12 * (pocrn * resp_poc * consumption), 32/12 * (pocln * resp_poc * consumption)],
-         [0, (docrn * resp_docr * consumption), 0, 0, 0],
-         [0, 0, (docln * resp_docl * consumption), 0, 0],
-         [0, 0, 0, (pocrn * resp_poc * consumption), 0],
-         [0, 0, 0, 0, (pocln * resp_poc * consumption)]]
-        return p,d
+       # o2n, docrn, docln, pocrn, pocln = y
+        #resp_docr, resp_docln, resp_poc = a
+        #consumption = consumption
+        #p = [[0, 0, 0, 0, 0],
+       #  [0, 0, 0, 0, 0],
+        # [0, 0, 0, 0, 0],
+         #[0, 0, 0, 0, 0],
+         #[0, 0, 0, 0, 0]]
+        #d = [[0, 32/12 * (docrn * resp_docr * consumption), 32/12 *(docln * resp_docl * consumption), 32/12 * (pocrn * resp_poc * consumption), 32/12 * (pocln * resp_poc * consumption)],
+        # [0, (docrn * resp_docr * consumption), 0, 0, 0],
+        # [0, 0, (docln * resp_docl * consumption), 0, 0],
+         #[0, 0, 0, (pocrn * resp_poc * consumption), 0],
+        # [0, 0, 0, 0, (pocln * resp_poc * consumption)]]
+       #return p,d
+    def fun(y, a, consumption):
+    # Ensure all y and a elements are scalars
+        o2n, docrn, docln, pocrn, pocln = [float(v) for v in y]
+        resp_docr, resp_docln, resp_poc = [float(v) for v in a]
+    
+    # Ensure consumption is scalar
+        consumption = float(consumption)
+    
+        p = [[0.0]*5 for _ in range(5)]
+    
+        d = [
+            [0.0,
+            float(32/12 * (docrn * resp_docr * consumption)),
+            float(32/12 * (docln * resp_docln * consumption)),
+            float(32/12 * (pocrn * resp_poc * consumption)),
+            float(32/12 * (pocln * resp_poc * consumption))],
+            [0.0, float(docrn * resp_docr * consumption), 0.0, 0.0, 0.0],
+            [0.0, 0.0, float(docln * resp_docln * consumption), 0.0, 0.0],
+            [0.0, 0.0, 0.0, float(pocrn * resp_poc * consumption), 0.0],
+            [0.0, 0.0, 0.0, 0.0, float(pocln * resp_poc * consumption)]
+        ]
+    
+        return p, d
+
+        
 
     def solve_mprk(fun, y0, dt, resp, theta_r, u, volume, k_half):
         
@@ -2156,9 +2186,14 @@ def prodcons_module(
     
     
     for dep in range(0, nx-1):
-        mprk_res = solve_mprk(fun, y0 =  [o2n[dep], docrn[dep], docln[dep], pocrn[dep], pocln[dep]], dt = dt, 
-               resp = [resp_docr, resp_docl, resp_poc], theta_r = theta_r, u = u[dep],
-               volume = volume[dep], k_half = k_half)
+        y0 = [float(o2n[dep]), float(docrn[dep]), float(docln[dep]), float(pocrn[dep]), float(pocln[dep])]
+       # mprk_res = solve_mprk(fun, y0 =  [o2n[dep], docrn[dep], docln[dep], pocrn[dep], pocln[dep]], dt = dt, 
+               #resp = [resp_docr, resp_docl, resp_poc], theta_r = theta_r, u = u[dep],
+               #volume = volume[dep], k_half = k_half)
+        mprk_res = solve_mprk(fun, y0=y0, dt=dt,
+                      resp=[resp_docr, resp_docl, resp_poc],
+                      theta_r=theta_r, u=u[dep],
+                      volume=volume[dep], k_half=k_half)
         o2[dep], docr[dep], docl[dep], pocr[dep], pocl[dep] = mprk_res[0]
         docr_respiration[dep], docl_respiration[dep], poc_respiration[dep] = [mprk_res[1], mprk_res[2], mprk_res[3]]
 
@@ -2539,6 +2574,7 @@ def run_wq_model(
 
       # Calculating per-depth OC load
     perdepth_oc = carbon(n) * hypso_weight
+    #perdepth_oc = carbon(n) / int(outflow_depth * 2)
     perdepth_docr = perdepth_oc * prop_oc_docr
     perdepth_docl = perdepth_oc * prop_oc_docl
     perdepth_pocr = perdepth_oc * prop_oc_pocl
@@ -2573,10 +2609,10 @@ def run_wq_model(
     # OC loading
     
     for i in range(0, int(outflow_depth * 2)):
-        docr[i] += perdepth_docr
-        docl[i] += perdepth_docl
-        pocr[i] += perdepth_pocr
-        pocl[i] += perdepth_pocl
+        docr[i] += perdepth_docr[i]
+        docl[i] += perdepth_docl[i]
+        pocr[i] += perdepth_pocr[i]
+        pocl[i] += perdepth_pocl[i]
     #docr = [x+perdepth_docr for x in docr]
     #docl = [x+perdepth_docl for x in docl]
     #pocr = [x+perdepth_pocr for x in pocr]
@@ -2926,11 +2962,16 @@ def run_wq_model(
     
     ## OC Outflow
     # Calculating per-depth OC load
-    #outflow_layers = outflow_depth * 2
+    outflow_layers = outflow_depth * 2
+    #volume_out = ((1 / hydro_res_time_hr) * sum(volume)) / outflow_layers
     total_outflow = ((1 / hydro_res_time_hr) * sum(volume))
     volume_out=total_outflow*hypso_weight
     
     for i in range(0,int(outflow_layers)):
+        #docr[i] -= docr[i] / volume[i] * volume_out
+        #docl[i] -= docl[i] / volume[i] * volume_out
+       # pocr[i] -= pocr[i] / volume[i] * volume_out
+       #pocl[i] -= pocl[i] / volume[i] * volume_out
         docr[i] -= docr[i] / volume[i] * volume_out[i]
         docl[i] -= docl[i] / volume[i] * volume_out[i]
         pocr[i] -= pocr[i] / volume[i] * volume_out[i]

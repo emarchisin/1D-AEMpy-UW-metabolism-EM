@@ -322,7 +322,7 @@ def get_secview(secchifile):
     
     return(secview)
 
-def provide_meteorology(meteofile, windfactor):
+def provide_meteorology(meteofile, windfactor, lat, lon, elev):
 
     meteo = pd.read_csv(meteofile)
     daily_meteo = meteo
@@ -331,8 +331,8 @@ def provide_meteorology(meteofile, windfactor):
                                                 airt = daily_meteo['Air_Temperature_celsius'],
                                                 relh = daily_meteo['Relative_Humidity_percent'],
                                                 swr = daily_meteo['Shortwave_Radiation_Downwelling_wattPerMeterSquared'],
-                                                lat = 43, lon = -89.41,
-                                                elev = 258)
+                                                lat =  lat, lon = lon,
+                                                elev = lon)
 
     
     #daily_meteo['dt'] = (daily_meteo['date'] - daily_meteo['date'][0]).astype('timedelta64[s]') + 1
@@ -542,7 +542,10 @@ def initial_profile(initfile, nx, dx, depth, startDate):
     lastRow = init_df.loc[init_df.Depth_meter == init_df.Depth_meter.max()]
     init_df = pd.concat([init_df, lastRow], ignore_index=True)
     init_df.loc[init_df.index[-1], 'Depth_meter'] = max(depth)
-    
+  print("Selected initial profile date:", init_df['datetime'].iloc[0])
+  print("Max depth in profile:", init_df['Depth_meter'].max())
+  print("Lake max depth:", max(depth))
+
   profile_fun = interp1d(init_df.Depth_meter.values, init_df.Water_Temperature_celsius.values)
   out_depths = depth # these aren't actually at the 0, 1, 2, ... values, actually increment by 1.0412; make sure okay
   u = profile_fun(out_depths)
@@ -1129,6 +1132,7 @@ def heating_module(
     
     return dat
 
+
 def diffusion_module(
         un,
         kzn,
@@ -1143,6 +1147,8 @@ def diffusion_module(
         Cd = 0.013,
         diffusion_method = 'hondzoStefan',
         scheme = 'implicit'):
+   
+
     
     u = un
     dens_u_n2 = calc_dens(un)
@@ -2572,6 +2578,7 @@ def run_wq_model(
   times = np.arange(startTime * dt, endTime * dt, dt)
   for idn, n in enumerate(times):
 
+
       # Calculating per-depth OC load
     perdepth_oc = carbon(n) * hypso_weight
     #perdepth_oc = carbon(n) / int(outflow_depth * 2)
@@ -2619,6 +2626,8 @@ def run_wq_model(
     #pocl = [x+perdepth_pocl for x in pocl]
 
     ## (1) HEATING
+  
+    
     heating_res = heating_module(
         un = u,
         area = area,
@@ -2646,6 +2655,7 @@ def run_wq_model(
         turb_factor = turb_factor)
     
     u = heating_res['temp']
+   
     IceSnowAttCoeff = heating_res['IceSnowAttCoeff']
     
     plt.plot(u, color = 'red')
@@ -2677,6 +2687,7 @@ def run_wq_model(
         Hs = Hs)
     
     u = ice_res['temp']
+   
     Hi = ice_res['icethickness']
     Hs = ice_res['snowthickness']
     Hsi = ice_res['snowicethickness']

@@ -52,7 +52,7 @@ for lake_num in range(1, num_lakes + 1):
                 
     
     meteo_all = provide_meteorology(meteofile = run_config["meteo_ini_file"], 
-                    windfactor = windfactor)
+                    windfactor = windfactor, lat = lake_config["lat"], lon = lake_config["lon"], elev = lake_config["elev"])
 
     pd.DataFrame(meteo_all).to_csv("../input/NLDAS-ME-meteo16-24.csv", index = False)
                      
@@ -60,11 +60,13 @@ for lake_num in range(1, num_lakes + 1):
 
     #get start time from input file
     desired_start = pd.Timestamp(run_config["start_time"])  
+    
     #find the matching index in the meteo file
     startTime = meteo_all.index[meteo_all['date'] == desired_start][0]
+    startTime = startTime
     #get the date from that index
     startingDate = meteo_all.loc[startTime, 'date']
-    n_years = (8.5) #7
+    n_years = run_config['n_years'] #7
     hydrodynamic_timestep = 24 * dt
     total_runtime =  (365 * n_years) * hydrodynamic_timestep/dt  
     
@@ -73,6 +75,7 @@ for lake_num in range(1, num_lakes + 1):
     endingDate = meteo_all['date'][(endTime-1)]
 
     print ("starting date", startingDate)
+    print ("starting desored", desired_start)
     print ("starting time", startTime)
 
     print ("ending time", endTime)
@@ -90,15 +93,15 @@ for lake_num in range(1, num_lakes + 1):
     tp_boundary = provide_phosphorus(tpfile =  run_config["tp_ini_file"], 
                                  startingDate = startingDate,
                                  startTime = startTime)
-    carbon = provide_carbon(docfile =  run_config["doc_ini_file"], 
+    carbon = provide_carbon(docfile =  run_config["carbon_driver"], 
                                  startingDate=pd.to_datetime("2022-05-30 09:00:00"),
                                  startTime = startTime)
     carbon = carbon.dropna(subset=['doc_mgl'])
     res = run_wq_model(
         # RUNTIME CONFIG
         lake_num=lake_num,
-        startTime=startTime - 6.0, #-6 = conversion from UTC to CST
-        endTime=endTime - 6.0,  #-6 = conversion from UTC to CST
+        startTime=startTime, #-6 = conversion from UTC to CST
+        endTime=endTime ,  #-6 = conversion from UTC to CST
         nx=run_config["nx"],
         dt=run_config["dt"],
         dx=run_config["dx"],

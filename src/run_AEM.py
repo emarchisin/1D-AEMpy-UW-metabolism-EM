@@ -27,7 +27,7 @@ num_lakes = get_num_data_columns(
 for lake_num in range(1, num_lakes + 1):
    
     lake_config = get_lake_config(
-        "../input/lake_config_test.csv", lake_num
+        "../input/lake_config.csv", lake_num
     )
     model_params = get_model_params(
         "../input/model_params_test.csv", lake_num

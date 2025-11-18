@@ -26,8 +26,8 @@ num_lakes = get_num_data_columns(
 
 for lake_num in range(1, num_lakes + 1):
    
-    lake_config = get_lake_config(
-        "../input/lake_config.csv", lake_num
+    lake_config = get_lake_config( # RL: added Longitdue, Latitude and Elevation
+        "../input/lake_config_test.csv", lake_num
     )
     model_params = get_model_params(
         "../input/model_params_test.csv", lake_num
@@ -52,7 +52,7 @@ for lake_num in range(1, num_lakes + 1):
                 
     
     meteo_all = provide_meteorology(meteofile = run_config["meteo_ini_file"], 
-                    windfactor = windfactor, lat = lake_config["lat"], lon = lake_config["lon"], elev = lake_config["elev"])
+                    windfactor = windfactor, lat = lake_config["Latitude"], lon = lake_config["Longitude"], elev = lake_config["Elevation"])
 
     pd.DataFrame(meteo_all).to_csv("../input/NLDAS-ME-meteo16-24.csv", index = False)
                      
@@ -60,15 +60,20 @@ for lake_num in range(1, num_lakes + 1):
 
     #get start time from input file
     desired_start = pd.Timestamp(run_config["start_time"])  
+    desired_end = pd.Timestamp(run_config["end_time"])  
     
     #find the matching index in the meteo file
     startTime = meteo_all.index[meteo_all['date'] == desired_start][0]
     startTime = startTime
     #get the date from that index
     startingDate = meteo_all.loc[startTime, 'date']
-    n_years = run_config['n_years'] #7
+    
+    # n_years = run_config['n_years'] # RL: this was not in config file
+    
+    n_days = (desired_end - desired_start).days
+    
     hydrodynamic_timestep = 24 * dt
-    total_runtime =  (365 * n_years) * hydrodynamic_timestep/dt  
+    total_runtime =  (n_days) * hydrodynamic_timestep/dt  
     
     endTime =  (startTime + total_runtime) 
   
@@ -93,7 +98,7 @@ for lake_num in range(1, num_lakes + 1):
     tp_boundary = provide_phosphorus(tpfile =  run_config["tp_ini_file"], 
                                  startingDate = startingDate,
                                  startTime = startTime)
-    carbon = provide_carbon(docfile =  run_config["carbon_driver"], 
+    carbon = provide_carbon(docfile =  run_config["doc_ini_file"], # RL: carbon driver?
                                  startingDate=pd.to_datetime("2022-05-30 09:00:00"),
                                  startTime = startTime)
     carbon = carbon.dropna(subset=['doc_mgl'])
@@ -253,6 +258,13 @@ axis[1].set_xlabel('Time')
 plt.tight_layout()
 plt.show()
 
+plt.plot(icethickness[0])
+plt.show()
+
+
+plt.plot(npp[0,:])
+plt.show()
+
 depth1=2 #index for 1m depth
 def compute_delta_hourly(var):
     delta=np.empty_like(var)
@@ -310,6 +322,7 @@ plt.xlabel("Time", fontsize=15)
 
 # heatmap of temps  
 N_pts = 6
+n_years = float(n_days / 365)
 
 
 fig, ax = plt.subplots(figsize=(15,5))

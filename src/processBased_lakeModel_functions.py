@@ -2090,6 +2090,7 @@ def prodcons_module_woDOCL(
         resp_docl = -0.01,
         resp_pocr = -0.1,
         resp_pocl = -0.1,
+        resp_poc = -0.1,
         grazing_rate = -0.1,
         Hi = 0,
         kd_snow = 0.9,
@@ -2174,7 +2175,7 @@ def prodcons_module_woDOCL(
         resp_docr, resp_docl, resp_pocr, resp_pocl, = a
         consumption = consumption.item()
         npp = npp.item() # npp.item()
-        growth = growth.item()
+        growth = growth #growth.item()
         temp =temp.item()
         
         carbon_oxygen = 1.6  # 32/12
@@ -2210,18 +2211,18 @@ def prodcons_module_woDOCL(
         
         consumption =  theta_r**(u-20) * (y[0]/volume)/(k_half +  y[0]/volume)
         
-        npp = 1 * H * sw_to_par * IP_m * y[6]/volume  * theta_npp**(u - 20) #* volume #* (y[4]/volume)/(0.1 +  y[4]/volume)
-        growth = resp[5] *  H * sw_to_par *  theta_npp**(u - 20)  * (y[6]/volume)/(k_half +  y[6]/volume)
+        # npp = 1 * H * sw_to_par * IP_m * y[6]/volume  * theta_npp**(u - 20) #* volume #* (y[4]/volume)/(0.1 +  y[4]/volume)
+        # growth = resp[5] *  H * sw_to_par *  theta_npp**(u - 20)  * (y[6]/volume)/(k_half +  y[6]/volume)
         
-        npp = (1 - exp(-(resp[7]*H * sw_to_par) /  resp[5] )) * exp(- (resp[8] * H*sw_to_par)/  resp[5] ) * resp[9] * theta_npp**(u - 20)
-        growth = resp[5] * npp / resp[9] *  theta_npp**(u - 20)  * (y[6]/volume)/(k_half +  y[6]/volume)
-        growth = resp[5] *  theta_npp**(u - 20)  * (y[6]/volume)/(k_half +  y[6]/volume)
+        # npp = (1 - exp(-(resp[7]*H * sw_to_par) /  resp[5] )) * exp(- (resp[8] * H*sw_to_par)/  resp[5] ) * resp[9] * theta_npp**(u - 20)
+        # growth = resp[5] * npp / resp[9] *  theta_npp**(u - 20)  * (y[6]/volume)/(k_half +  y[6]/volume)
+        # growth = resp[5] *  theta_npp**(u - 20)  * (y[6]/volume)/(k_half +  y[6]/volume)
         
-        r_gpp = p / (kd_light * dx) * np.log((h + Jsw) / (h + H)) * (y[6]/volume / (y[6]/volume + m))
-        gpp = r_gpp 
+        # r_gpp = p / (kd_light * dx) * np.log((h + Jsw) / (h + H)) * (y[6]/volume / (y[6]/volume + m))
+        # gpp = r_gpp 
         
-        npp = r_gpp * theta_npp**(u - 20) 
-        
+        # npp = r_gpp * theta_npp**(u - 20) 
+        growth = 1
         npp = H * sw_to_par * IP_m * TP  * theta_npp**(u - 20) * volume 
         
         # print(npp)
@@ -2230,7 +2231,7 @@ def prodcons_module_woDOCL(
         #if gpp > 0:
         #    breakpoint()
             
-        temp =  theta_npp**(u - 20)  * (y[6]/volume)/(k_half +  y[6]/volume)
+        temp =  theta_npp**(u - 20) # * (y[6]/volume)/(k_half +  y[6]/volume)
         #if H> 0:
             
         #breakpoint() 
@@ -2281,7 +2282,7 @@ def prodcons_module_woDOCL(
         y = np.linalg.solve(a, r)
         # breakpoint()
         return [y, 86400 * resp[0] * consumption, 86400 * resp[1] * consumption, 86400 * resp[2] * consumption, 86400 * resp[3] * consumption,
-                npp * 86400, growth *86400, resp[4] *temp * 86400]
+                npp * 86400]
     
     docr_respiration = o2 * 0.0
     docl_respiration = o2 * 0.0
@@ -2299,12 +2300,12 @@ def prodcons_module_woDOCL(
             H_in = H[dep - 1]
         
         mprk_res = solve_mprk(fun, y0 =  [o2n[dep], docrn[dep], docln[dep], pocrn[dep], pocln[dep]], dt = dt, dx = dx,
-               resp = [resp_docr, resp_docl, resp_pocr, resp_pocl, grazing_rate, growth_rate, grazing_ratio, alpha_gpp, beta_gpp, o2_to_chla], theta_r = theta_r, u = u[dep],
+               resp = [resp_docr, resp_docl, resp_pocr, resp_pocl], theta_r = theta_r, u = u[dep],
                volume = volume[dep], k_half = k_half,
                H = H[dep], sw_to_par = sw_to_par, IP_m = IP_m, TP = TP, theta_npp = theta_npp,
                kd_light = kd_light, depth = depth[dep], Jsw = H_in)
         o2[dep], docr[dep], docl[dep], pocr[dep], pocl[dep] = mprk_res[0]
-        docr_respiration[dep], docl_respiration[dep], pocr_respiration[dep], pocl_respiration[dep], npp_production[dep], algae_growth[dep], algae_grazing[dep] = [mprk_res[1], mprk_res[2], mprk_res[3], mprk_res[4], mprk_res[5], mprk_res[6], mprk_res[7]]
+        docr_respiration[dep], docl_respiration[dep], pocr_respiration[dep], pocl_respiration[dep], npp_production[dep]= [mprk_res[1], mprk_res[2], mprk_res[3], mprk_res[4], mprk_res[5]]
 
 
     
@@ -2315,6 +2316,7 @@ def prodcons_module_woDOCL(
     # pocr = pocrn + dt * consumption * (pocrn * resp_poc)
     # pocl = pocln + dt * consumption * (pocln * resp_poc)
     
+    poc_respiration = pocl_respiration
     end_time = datetime.datetime.now()
     print("wq production and consumption: " + str(end_time - start_time))
     
@@ -2327,7 +2329,8 @@ def prodcons_module_woDOCL(
            'docl_respiration': docl_respiration,
            'pocr_respiration': pocr_respiration,
            'pocl_respiration': pocl_respiration,
-           'npp_production': npp_production}
+           'npp_production': npp_production,
+           'poc_respiration': poc_respiration}
 
     
     return dat
@@ -2781,7 +2784,8 @@ def diffusion_module_dAdK(
         mn[-1] = o2n[-1]
         
         for k in range(1,j-1):
-            mn[k] = alpha[k] * o2n[k-1] + (area[k] - 2 * alpha[k]) * o2n[k] + alpha[k] * o2n[k+1]
+            mn[k] = - az[k] * o2n[k-1] + (1 - 2 * alpha[k] * area[k] * kzn[k]) * o2n[k] - cz[k] * o2n[k+1]
+        
         o2 = np.linalg.solve(y, mn)* volume
         
         mn = docrn * 0.0    
@@ -2789,7 +2793,7 @@ def diffusion_module_dAdK(
         mn[-1] = docrn[-1]
         
         for k in range(1,j-1):
-            mn[k] = alpha[k] * docrn[k-1] + (area[k] - 2 * alpha[k]) * docrn[k] + alpha[k] * docrn[k+1]
+            mn[k] = - az[k] * docrn[k-1] + (1 - 2 * alpha[k] * area[k] * kzn[k]) * docrn[k] - cz[k] * docrn[k+1]
         docr = np.linalg.solve(y, mn) * volume
         
         mn = docln * 0.0    
@@ -2797,7 +2801,7 @@ def diffusion_module_dAdK(
         mn[-1] = docln[-1]
         
         for k in range(1,j-1):
-            mn[k] = alpha[k] * docln[k-1] + (area[k] - 2 * alpha[k]) * docln[k] + alpha[k] * docln[k+1]
+            mn[k] = - az[k] * docln[k-1] + (1 - 2 * alpha[k] * area[k] * kzn[k]) * docln[k] - cz[k] * docln[k+1]
         docl = np.linalg.solve(y, mn) * volume
 
         
@@ -2831,8 +2835,6 @@ def boundary_module_oxygen(
         docrn,
         pocln,
         pocrn,
-        nutrn,
-        algn,
         area,
         volume,
         depth,
@@ -2849,6 +2851,7 @@ def boundary_module_oxygen(
         Uw,
         Pa,
         RH,
+        TP,
         kd_light,
         Hi = 0,
         kd_snow = 0.9,
@@ -2900,7 +2903,8 @@ def boundary_module_oxygen(
     docl = docln
     pocr = pocrn
     pocl = pocln
-
+        
+    #breakpoint()
 
     #breakpoint()
     # light attenuation
@@ -2929,8 +2933,9 @@ def boundary_module_oxygen(
     d_sod = 10**(-4.410 + 773.8 /(u[nx-1] + 273.15) - (506.4/(u[nx-1] + 273.15))**2) / 10000
 
     atm_flux = piston_velocity * (do_sat_calc(u[0], 982.2, altitude = 258) - o2[0]/volume[0]) * area[0]
-    o2[0] = (o2[0] +  # m/s g/m3 m2   m/s g/m3 m2 s
-        atm_flux) * dt
+    
+    o2[0] = o2[0] +  (atm_flux * dt)# m/s g/m3 m2   m/s g/m3 m2 s
+        
     
 
     o2[(nx-1)] = o2[(nx-1)] - (f_sod + d_sod/d_thick * o2[nx-1]/volume[nx-1] * area[nx-1]) * dt * theta_r**(u[(nx-1)] - 20) 
@@ -3657,6 +3662,7 @@ def run_wq_model(
  
     
     ## (2) DIFFUSION
+    #breakpoint()
     
     # --> RL change from diffusion_module to diffusion_module_dAdK
     diffusion_res = diffusion_module_dAdK(
@@ -3692,7 +3698,7 @@ def run_wq_model(
     docr_diff[:, idn] = docr
     docl_diff[:, idn] = docl
     
-    
+    #breakpoint()
     # --> RL change
     advection_res = advection_diffusion_module(
         un = u,
@@ -3739,6 +3745,7 @@ def run_wq_model(
     
     plt.plot(u, color = 'green')
     
+    #breakpoint()
     #breakpoint()
     
     u = mixing_res['temp'] 
@@ -3799,7 +3806,7 @@ def run_wq_model(
         depth = depth, 
         nx = nx,
         dt = dt,
-        #dx = dx,
+        dx = dx,
         ice = ice,
         kd_ice = kd_ice,
         Tair = Tair(n),
@@ -3807,9 +3814,9 @@ def run_wq_model(
         ea = ea(n),
         Jsw = Jsw(n),
         Jlw = Jlw(n),
-        #Uw = Uw(n),
-        #Pa= Pa(n),
-        #RH = RH(n),
+        Uw = Uw(n),
+        Pa= Pa(n),
+        RH = RH(n),
         kd_light = kd_light,
         TP = TP(n),
         Hi = Hi,
@@ -3846,7 +3853,8 @@ def run_wq_model(
     docl_bc[:, idn] = docl
     pocr_bc[:, idn] = pocr
     pocl_bc[:, idn] = pocl
-    nppm[:, idn] = npp
+
+    #breakpoint()
     
     
     ## (WQ2) PRODUCTION CONSUMPTION
@@ -3861,6 +3869,18 @@ def run_wq_model(
         area = area,
         volume = volume,
         depth = depth, 
+        ice = ice,
+        kd_ice = kd_ice,
+        Tair = Tair(n),
+        CC = CC(n),
+        ea = ea(n),
+        Jsw = Jsw(n),
+        Jlw = Jlw(n),
+        Uw = Uw(n),
+        Pa= Pa(n),
+        RH = RH(n),
+        kd_light = kd_light,
+        TP = TP(n),
         nx = nx,
         dt = dt,
         dx = dx,
@@ -3878,17 +3898,20 @@ def run_wq_model(
     docr_respiration = prodcons_res['docr_respiration']
     docl_respiration = prodcons_res['docl_respiration']
     poc_respiration = prodcons_res['poc_respiration']
+    npp = prodcons_res["npp_production"]
 
     o2_pd[:, idn] = o2
     docr_pd[:, idn] = docr
     docl_pd[:, idn] = docl
     pocr_pd[:, idn] = pocr
     pocl_pd[:, idn] = pocl
+    nppm[:, idn] = npp
     
     docr_respirationm[:, idn] = docr_respiration
     docl_respirationm[:, idn] = docl_respiration
     poc_respirationm[:, idn] = poc_respiration
     
+    #breakpoint()
     # --> RL change, not needed
     # dens_u_n2 = calc_dens(u)
     # if 'kz' in locals():

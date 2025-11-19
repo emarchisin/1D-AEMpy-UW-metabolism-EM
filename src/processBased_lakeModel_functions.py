@@ -485,51 +485,51 @@ def provide_phosphorus(tpfile, startingDate, startTime):
     return(daily_tp)
 
 
-def provide_carbon(docfile, startingDate, startTime):
-    # Read DOC input file
-    doc = pd.read_csv(docfile)
-    doc['datetime'] = pd.to_datetime(doc['datetime'])
-    doc["date"] = doc["datetime"]
+def provide_carbon(ocloadfile, startingDate, startTime):
+    # Read OC load input file
+    oc_load = pd.read_csv(ocloadfile)
+    oc_load['datetime'] = pd.to_datetime(oc_load['datetime'])
+    oc_load["date"] = oc_load["datetime"]
     full_range = pd.date_range(
-        start = doc['date'].min(), 
-        end = doc['date'].max(),
+        start = oc_load['date'].min(), 
+        end = oc_load['date'].max(),
         freq = "H"
     )
     expanded = pd.DataFrame({"datetime": full_range})
-    expanded = expanded.merge(doc, on = "datetime", how = "left")
+    expanded = expanded.merge(oc_load, on = "datetime", how = "left")
     expanded = expanded.ffill()
-    doc = expanded
+    oc_load = expanded
 
     # Filter data starting from model start date
-    daily_doc = doc.loc[
-    (doc['date'] >= startingDate) ]
-    daily_doc['ditt'] = abs(daily_doc['date'] - startingDate)
+    daily_oc = oc_load.loc[
+    (oc_load['date'] >= startingDate) ]
+    daily_oc['ditt'] = abs(daily_oc['date'] - startingDate)
 
    
 
     # If startingDate precedes data, insert an initial row
-    if startingDate < daily_doc['date'].min():
+    if startingDate < daily_oc['date'].min():
         first_row = {
             'datetime': startingDate,
-            'discharge': doc['discharge'].iloc[0],
-            'doc_mgl': doc['doc_mgl'].iloc[0],
+            'discharge': oc_load['discharge'].iloc[0],
+            'oc': oc_load['oc'].iloc[0],
             'date': startingDate,
-            'ditt': (daily_doc['date'].iloc[0] - startingDate)
+            'ditt': (daily_oc['date'].iloc[0] - startingDate)
         }
-        daily_doc = pd.concat([pd.DataFrame([first_row]), daily_doc], ignore_index=True)
+        daily_oc = pd.concat([pd.DataFrame([first_row]), daily_oc], ignore_index=True)
 
     # Compute time offset from simulation start
-    print("Unique datetimes in daily_doc:")
-    print(daily_doc['date'].unique())
-    print("Shape:", daily_doc.shape)
+    print("Unique datetimes in daily_oc:")
+    print(daily_oc['date'].unique())
+    print("Shape:", daily_oc.shape)
 
-    daily_doc['dt'] = (daily_doc['date'] - daily_doc['date'].iloc[0]).dt.total_seconds() + startTime
+    daily_oc['dt'] = (daily_oc['date'] - daily_oc['date'].iloc[0]).dt.total_seconds() + startTime
     #compute total carbon load as doc_mgl * discharge
-    daily_doc['total_carbon'] = daily_doc['doc_mgl'] * daily_doc['discharge']
+    daily_oc['total_carbon'] = daily_oc['oc'] * daily_oc['discharge']
 
     #fill in hourly times
 
-    return daily_doc
+    return daily_oc
 
 def initial_profile(initfile, nx, dx, depth, startDate):
   #meteo = processed_meteo

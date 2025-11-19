@@ -14,29 +14,29 @@ from numba import jit
 #os.chdir("/home/robert/Projects/1D-AEMpy/src")
 #os.chdir("C:/Users/ladwi/Documents/Projects/R/1D-AEMpy/src")
 #os.chdir("D:/bensd/Documents/Python_Workspace/1D-AEMpy/src")
-#os.chdir("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/src")
+os.chdir("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/src")
 from processBased_lakeModel_functions import get_hypsography, provide_meteorology, initial_profile, run_wq_model, wq_initial_profile, provide_phosphorus, provide_carbon, do_sat_calc, calc_dens,atmospheric_module, get_secview, get_lake_config, get_model_params, get_run_config, get_ice_and_snow , get_num_data_columns#, heating_module, diffusion_module, mixing_module, convection_module, ice_module
 
 
 
 Start = datetime.datetime.now()
 num_lakes = get_num_data_columns(
-    "../input/lake_config_test.csv", "Zmax"
+    "../input/ME/lake_config.csv", "Zmax"
 )
 
 for lake_num in range(1, num_lakes + 1):
    
     lake_config = get_lake_config( # RL: added Longitdue, Latitude and Elevation
-        "../input/lake_config_test.csv", lake_num
+        "../input/ME/lake_config.csv", lake_num
     )
     model_params = get_model_params(
-        "../input/model_params_test.csv", lake_num
+        "../input/ME/model_params.csv", lake_num
     )
     run_config = get_run_config(
-        "../input/run_config_test.csv", lake_num
+        "../input/ME/run_config.csv", lake_num
     )
     ice_and_snow = get_ice_and_snow(
-        "../input/ice_and_snow_test.csv", lake_num
+        "../input/ME/ice_and_snow.csv", lake_num
     )
     windfactor = float(lake_config["WindSpeed"])
     zmax = lake_config['Zmax']
@@ -44,7 +44,7 @@ for lake_num in range(1, num_lakes + 1):
     dt = float(run_config["dt"])# 24 hours times 60 min/hour times 60 seconds/min to convert s to day
     dx = float(run_config["dx"]) # spatial step
     ## area and depth values of our lake 
-    area, depth, volume, hypso_weight = get_hypsography(hypsofile = '../input/bathymetry.csv',
+    area, depth, volume, hypso_weight = get_hypsography(hypsofile = '../input/ME/bathymetry.csv',
                             dx = dx, nx = nx, outflow_depth=float(lake_config["outflow_depth"]))
     #area, depth, volume = get_hypsography(hypsofile = '../input/bathymetry.csv',
       #                      dx = dx, nx = nx)
@@ -54,7 +54,7 @@ for lake_num in range(1, num_lakes + 1):
     meteo_all = provide_meteorology(meteofile = run_config["meteo_ini_file"], 
                     windfactor = windfactor, lat = lake_config["Latitude"], lon = lake_config["Longitude"], elev = lake_config["Elevation"])
 
-    pd.DataFrame(meteo_all).to_csv("../input/NLDAS-ME-meteo16-24.csv", index = False)
+    pd.DataFrame(meteo_all).to_csv("../input/ME/NLDAS-ME-meteo16-24.csv", index = False)
                      
     ## time step discretization 
 
@@ -98,15 +98,15 @@ for lake_num in range(1, num_lakes + 1):
     tp_boundary = provide_phosphorus(tpfile =  run_config["tp_ini_file"], 
                                  startingDate = startingDate,
                                  startTime = startTime)
-    carbon = provide_carbon(docfile =  run_config["doc_ini_file"], # RL: carbon driver?
-                                 startingDate=pd.to_datetime("2022-05-30 09:00:00"),
+    carbon = provide_carbon(ocloadfile =  run_config["oc_load_file"], # RL: carbon driver?
+                                 startingDate=pd.to_datetime("2016-6-30 18:00:00"),
                                  startTime = startTime)
-    carbon = carbon.dropna(subset=['doc_mgl'])
+    carbon = carbon.dropna(subset=['oc'])
     res = run_wq_model(
         # RUNTIME CONFIG
         lake_num=lake_num,
-        startTime=startTime, #-6 = conversion from UTC to CST
-        endTime=endTime ,  #-6 = conversion from UTC to CST
+        startTime=startTime,# -6,# = conversion from UTC to CST
+        endTime=endTime,# -6, #= conversion from UTC to CST
         nx=run_config["nx"],
         dt=run_config["dt"],
         dx=run_config["dx"],
@@ -167,8 +167,8 @@ for lake_num in range(1, num_lakes + 1):
         # light & heat fluxes
         kd_light=model_params["kd_light"],
         light_water=model_params["light_water"],
-        light_doc=model_params["LECDOCR"],
-        light_poc=model_params["LECPOCR"],
+        light_doc=model_params["LECDOC"],
+        light_poc=model_params["LECPOC"],
         albedo=lake_config["Albedo"],
         eps=model_params["eps"],
         emissivity=model_params["emissivity"],

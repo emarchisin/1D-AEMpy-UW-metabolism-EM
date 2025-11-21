@@ -105,8 +105,8 @@ for lake_num in range(1, num_lakes + 1):
     res = run_wq_model(
         # RUNTIME CONFIG
         lake_num=lake_num,
-        startTime=startTime,# -6,# = conversion from UTC to CST
-        endTime=endTime,# -6, #= conversion from UTC to CST
+        startTime=startTime -6,# = conversion from UTC to CST
+        endTime=endTime -6, #= conversion from UTC to CST
         nx=run_config["nx"],
         dt=run_config["dt"],
         dx=run_config["dx"],

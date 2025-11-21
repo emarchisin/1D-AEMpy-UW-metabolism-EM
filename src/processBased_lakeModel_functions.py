@@ -524,8 +524,9 @@ def provide_carbon(ocloadfile, startingDate, startTime):
     print("Shape:", daily_oc.shape)
 
     daily_oc['dt'] = (daily_oc['date'] - daily_oc['date'].iloc[0]).dt.total_seconds() + startTime
-    #compute total carbon load as doc_mgl * discharge
+    #compute total carbon load as oc_mgl * discharge
     daily_oc['total_carbon'] = daily_oc['oc'] * daily_oc['discharge']
+    daily_oc['hourly_carbon']=daily_oc['total_carbon']/24
 
     #fill in hourly times
 
@@ -3438,7 +3439,7 @@ def run_wq_model(
 
 #carbon interpol
   carbon_fillvals = tuple(oc_load_input.total_carbon.values[[0,-1]])
-  carbon = interp1d(oc_load_input['dt'].values, oc_load_input['total_carbon'].values,
+  carbon = interp1d(oc_load_input['dt'].values, oc_load_input['hourly_carbon'].values,
               kind="linear", fill_value="extrapolate", bounds_error=False)
   
   

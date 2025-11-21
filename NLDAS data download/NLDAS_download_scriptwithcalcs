@@ -1,4 +1,5 @@
 ##for use in Google Earth Engine Code Editor (https://code.earthengine.google.com)
+  #saves into Google Drive, click Run code, click "Tasks", then "Run" in that tab and save to your desired Drive location
   #Places to edit: var bounds, start, end, datetime CT (if not on Central Time), scale depending on size of bounding box
 
 var bounds = ee.Geometry.Rectangle([-89.48, 43.07, -89.36, 43.14]); //set bounding coordinates, set for Mendota currently

@@ -99,7 +99,7 @@ for lake_num in range(1, num_lakes + 1):
                                  startingDate = startingDate,
                                  startTime = startTime)
     carbon = provide_carbon(ocloadfile =  run_config["oc_load_file"], # RL: carbon driver?
-                                 startingDate=pd.to_datetime("2016-6-30 18:00:00"),
+                                 startingDate=startingDate,
                                  startTime = startTime)
     carbon = carbon.dropna(subset=['oc'])
     res = run_wq_model(

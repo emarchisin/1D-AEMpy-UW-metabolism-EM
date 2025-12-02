@@ -324,7 +324,7 @@ plt.ylabel("Energy Ratio", fontsize=15)
 plt.xlabel("Time", fontsize=15)   
 
 # heatmap of temps  
-N_pts = 6
+N_pts = 15
 n_years = float(n_days / 365)
 
 
@@ -566,6 +566,71 @@ plt.show()
 plt.plot(times, thermo_dep[0,:]*dx,color= 'blue')
 plt.plot(times, temp[0,:] - temp[(nx-1),:], color = 'red')
 plt.show()
+
+#Diagnostic graphs at depth 
+depths = [1,34]   # Python indices for depth=1 and depth=12
+labels = ['Depth 1', 'Depth 17']
+
+doc_total = np.add(docl, docr)
+poc_total = np.add(pocl, pocr)
+# Plot DO
+plt.figure(figsize=(10, 5))
+for i, d in enumerate(depths):
+    plt.plot(times, o2[d, :] / volume[d], label=f'DO at {labels[i]}', linestyle='-', color=('blue' if d == 1 else 'cyan'))
+plt.ylabel("DO (mg/L)")
+plt.xlabel("Time")
+plt.legend()
+plt.title("Dissolved Oxygen (DO)")
+plt.show()
+
+
+plt.figure(figsize=(10, 5))
+for i, d in enumerate(depths):
+    max_doc = (doc_total[d, :] / volume[d]).max()   # take max over time
+    print(f"Depth index {d}: max DOC = {max_doc:.2f} mg/L")
+    plt.plot(times, doc_total[d, :]/volume [d], label=f'DOC at {labels[i]}', linestyle='-', color=('green' if d == 1 else 'lightgreen'))
+plt.ylabel("DOC (mg/L)")
+plt.xlabel("Time")
+plt.ylim(0, 8)
+plt.legend()
+plt.title("Dissolved Organic Carbon Total (DOC-tot)")
+plt.show()
+
+plt.figure(figsize=(10, 5))
+for i, d in enumerate(depths):
+    max_doc = (docl[d, :] / volume[d]).max()   # take max over time
+    print(f"Depth index {d}: max DOC = {max_doc:.2f} mg/L")
+    plt.plot(times, docl[d, :]/volume [d], label=f'DOC at {labels[i]}', linestyle='-', color=('green' if d == 1 else 'lightgreen'))
+plt.ylabel("DOC (mg/L)")
+plt.xlabel("Time")
+plt.ylim(0, 8)
+plt.legend()
+plt.title("Dissolved Organic Carbon Laible (DOCl)")
+plt.show()
+
+plt.figure(figsize=(10, 5))
+for i, d in enumerate(depths):
+    max_doc = (docr[d, :] / volume[d]).max()   # take max over time
+    print(f"Depth index {d}: max DOC = {max_doc:.2f} mg/L")
+    plt.plot(times, docr[d, :]/volume [d], label=f'DOC at {labels[i]}', linestyle='-', color=('green' if d == 1 else 'lightgreen'))
+plt.ylabel("DOC (mg/L)")
+plt.xlabel("Time")
+plt.ylim(0, 8)
+plt.legend()
+plt.title("Dissolved Organic Carbon Recalcitrant (DOCr)")
+plt.show()
+
+# Plot POC
+plt.figure(figsize=(10, 5))
+for i, d in enumerate(depths):
+    plt.plot(times, poc_total[d, :]/volume[d], label=f'POC at {labels[i]}', linestyle='-', color=('orange' if d == 1 else 'gold'))
+plt.ylabel("POC (mg/L)")
+plt.xlabel("Time")
+plt.ylim(0, 8)
+plt.legend()
+plt.title("Particulate Organic Carbon (POC)")
+plt.show()
+
 
 # TODO
 # air water exchange

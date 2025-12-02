@@ -107,8 +107,8 @@ for lake_num in range(1, num_lakes + 1):
     res = run_wq_model(
         # RUNTIME CONFIG
         lake_num=lake_num,
-        startTime=startTime,# -6,# = conversion from UTC to CST
-        endTime=endTime,# -6, #= conversion from UTC to CST
+        startTime=startTime -6,# = conversion from UTC to CST
+        endTime=endTime -6, #= conversion from UTC to CST
         nx=run_config["nx"],
         dt=run_config["dt"],
         dx=run_config["dx"],
@@ -587,11 +587,11 @@ plt.show()
 plt.figure(figsize=(10, 5))
 for i, d in enumerate(depths):
     max_doc = (doc_total[d, :] / volume[d]).max()   # take max over time
-    print(f"Depth index {d}: max DOC = {max_doc:.2f} mg/L")
+    print(f"Depth index {d}: max DOC total = {max_doc:.2f} mg/L")
     plt.plot(times, doc_total[d, :]/volume [d], label=f'DOC at {labels[i]}', linestyle='-', color=('green' if d == 1 else 'lightgreen'))
 plt.ylabel("DOC (mg/L)")
 plt.xlabel("Time")
-plt.ylim(0, 8)
+#plt.ylim(0, 8)
 plt.legend()
 plt.title("Dissolved Organic Carbon Total (DOC-tot)")
 plt.show()
@@ -599,11 +599,11 @@ plt.show()
 plt.figure(figsize=(10, 5))
 for i, d in enumerate(depths):
     max_doc = (docl[d, :] / volume[d]).max()   # take max over time
-    print(f"Depth index {d}: max DOC = {max_doc:.2f} mg/L")
+    print(f"Depth index {d}: max DOCl = {max_doc:.2f} mg/L")
     plt.plot(times, docl[d, :]/volume [d], label=f'DOC at {labels[i]}', linestyle='-', color=('green' if d == 1 else 'lightgreen'))
 plt.ylabel("DOC (mg/L)")
 plt.xlabel("Time")
-plt.ylim(0, 8)
+#plt.ylim(0, 8)
 plt.legend()
 plt.title("Dissolved Organic Carbon Laible (DOCl)")
 plt.show()
@@ -611,11 +611,11 @@ plt.show()
 plt.figure(figsize=(10, 5))
 for i, d in enumerate(depths):
     max_doc = (docr[d, :] / volume[d]).max()   # take max over time
-    print(f"Depth index {d}: max DOC = {max_doc:.2f} mg/L")
+    print(f"Depth index {d}: max DOCr = {max_doc:.2f} mg/L")
     plt.plot(times, docr[d, :]/volume [d], label=f'DOC at {labels[i]}', linestyle='-', color=('green' if d == 1 else 'lightgreen'))
 plt.ylabel("DOC (mg/L)")
 plt.xlabel("Time")
-plt.ylim(0, 8)
+#plt.ylim(0, 8)
 plt.legend()
 plt.title("Dissolved Organic Carbon Recalcitrant (DOCr)")
 plt.show()
@@ -626,7 +626,7 @@ for i, d in enumerate(depths):
     plt.plot(times, poc_total[d, :]/volume[d], label=f'POC at {labels[i]}', linestyle='-', color=('orange' if d == 1 else 'gold'))
 plt.ylabel("POC (mg/L)")
 plt.xlabel("Time")
-plt.ylim(0, 8)
+#plt.ylim(0, 8)
 plt.legend()
 plt.title("Particulate Organic Carbon (POC)")
 plt.show()

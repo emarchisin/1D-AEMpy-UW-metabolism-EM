@@ -10,6 +10,7 @@ import datetime
 import matplotlib.pyplot as plt
 import seaborn as sns
 from numba import jit
+from functools import reduce
 
 #os.chdir("/home/robert/Projects/1D-AEMpy/src")
 #os.chdir("C:/Users/ladwi/Documents/Projects/R/1D-AEMpy/src")
@@ -25,6 +26,7 @@ num_lakes = get_num_data_columns(
 )
 
 for lake_num in range(1, num_lakes + 1):
+
    
     lake_config = get_lake_config( # RL: added Longitdue, Latitude and Elevation
         "../input/ME/lake_config.csv", lake_num
@@ -105,8 +107,8 @@ for lake_num in range(1, num_lakes + 1):
     res = run_wq_model(
         # RUNTIME CONFIG
         lake_num=lake_num,
-        startTime=startTime -6,# = conversion from UTC to CST
-        endTime=endTime -6, #= conversion from UTC to CST
+        startTime=startTime,# -6,# = conversion from UTC to CST
+        endTime=endTime,# -6, #= conversion from UTC to CST
         nx=run_config["nx"],
         dt=run_config["dt"],
         dx=run_config["dx"],
@@ -150,14 +152,15 @@ for lake_num in range(1, num_lakes + 1):
         Ice_min=ice_and_snow["Ice_min"],
         KEice=ice_and_snow["KEice"],
         rho_snow=ice_and_snow["rho_snow"],
+    
 
         # mixing and physical transport
         km=model_params["km"],
         k0=model_params["k0"],
         weight_kz=model_params["weight_kz"],
-        piston_velocity=model_params["piston_velocity"],
+        piston_velocity=model_params["piston_velocity"]/86400,
         Cd=model_params["Cd"],
-        hydro_res_time_hr=model_params["hydro_res_time_hr"],
+        hydro_res_time_hr=model_params["hydro_res_time"]*8760,
         W_str=(
             None if pd.isna(model_params["W_str"])
             else model_params["W_str"]
@@ -167,8 +170,8 @@ for lake_num in range(1, num_lakes + 1):
         # light & heat fluxes
         kd_light=model_params["kd_light"],
         light_water=model_params["light_water"],
-        light_doc=model_params["LECDOC"],
-        light_poc=model_params["LECPOC"],
+        light_doc=model_params["light_doc"],
+        light_poc=model_params["light_poc"],
         albedo=lake_config["Albedo"],
         eps=model_params["eps"],
         emissivity=model_params["emissivity"],
@@ -180,18 +183,18 @@ for lake_num in range(1, num_lakes + 1):
         Hgeo=model_params["Hgeo"],
 
         # biogeochemical params
-        resp_docr=model_params["RDOCR"],
-        resp_docl=model_params["RDOCL"],
-        resp_poc=model_params["RPOCR"],
-        sed_sink=model_params["sed_sink"],
-        settling_rate=model_params["settling_rate"],
-        sediment_rate=model_params["sediment_rate"],
+        resp_docr=model_params["resp_docr"]/86400,
+        resp_docl=model_params["resp_docl"]/86400,
+        resp_poc=model_params["resp_poc"]/86400,
+        sed_sink=model_params["sed_sink"]/86400,
+        settling_rate=model_params["settling_rate"]/86400,
+        sediment_rate=model_params["sediment_rate"]/86400,
         theta_npp=model_params["theta_npp"],
-        theta_r=model_params["RTheta"],
+        theta_r=model_params["theta_r"],
         conversion_constant=model_params["conversion_constant"],
         k_half=model_params["k_half"],
-        p_max=model_params["p_max"],
-        IP=model_params["IP"],
+        p_max=model_params["p_max"]/86400,
+        IP=model_params["IP"]/86400,
 
         # carbon pool partitioning
         prop_oc_docr=model_params["prop_oc_docr"],
@@ -572,14 +575,14 @@ plt.show()
 # phosphorus bcDesktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/
 # ice npp
 # wind mixingS
-poc_all = np.add(pocl, pocr)
+poc_tot = np.add(pocl, pocr)
 pd.DataFrame(temp).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_temp.csv")
 pd.DataFrame(o2).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_do.csv")
 pd.DataFrame((o2/ volume[:, np.newaxis]).T).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_do_mgL.csv")
 pd.DataFrame(docr).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB MEME.modeled_docr.csv")
 pd.DataFrame(docl).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_docl.csv")
 pd.DataFrame(pocl).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_pocl.csv")
-pd.DataFrame((poc_all/ volume[:, np.newaxis]).T).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_pocall_ugL.csv")
+pd.DataFrame((poc_tot/ volume[:, np.newaxis]).T).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_pocall_ugL.csv")
 pd.DataFrame(pocr).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_pocr.csv")
 pd.DataFrame(secchi).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_secchi.csv")
 pd.DataFrame(thermo_dep).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_thermo_dep.csv")
@@ -596,8 +599,8 @@ pd.DataFrame(times).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-
 
 
 # label = 116
-# doc_all = np.add(docl, docr)
-# poc_all = np.add(pocl, pocr)
+# doc_tot = np.add(docl, docr)
+# poc_tot = np.add(pocl, pocr)
 # os.mkdir("../parameterization/output/Run_"+str(label))
 # pd.DataFrame(temp).to_csv("../parameterization/output/Run_"+str(label)+"/temp.csv", index = False)
 # pd.DataFrame(o2).to_csv("../parameterization/output/Run_"+str(label)+"/do.csv", index = False)

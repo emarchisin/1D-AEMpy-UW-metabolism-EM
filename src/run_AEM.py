@@ -107,8 +107,8 @@ for lake_num in range(1, num_lakes + 1):
     res = run_wq_model(
         # RUNTIME CONFIG
         lake_num=lake_num,
-        startTime=startTime -6,# = conversion from UTC to CST
-        endTime=endTime -6, #= conversion from UTC to CST
+        startTime=startTime,# -6,# = conversion from UTC to CST
+        endTime=endTime,# -6, #= conversion from UTC to CST
         nx=run_config["nx"],
         dt=run_config["dt"],
         dx=run_config["dx"],
@@ -185,6 +185,8 @@ for lake_num in range(1, num_lakes + 1):
         # biogeochemical params
         resp_docr=model_params["resp_docr"]/86400,
         resp_docl=model_params["resp_docl"]/86400,
+        resp_pocr=model_params["resp_poc"]/86400,
+        resp_pocl=model_params["resp_poc"]/86400,
         resp_poc=model_params["resp_poc"]/86400,
         sed_sink=model_params["sed_sink"]/86400,
         settling_rate=model_params["settling_rate"]/86400,

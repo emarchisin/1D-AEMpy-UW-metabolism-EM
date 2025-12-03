@@ -2173,7 +2173,7 @@ def prodcons_module_woDOCL(
     def fun(y, a, consumption, npp, growth, temp):
         #"Production and destruction term for a simple linear model."
         o2n, docrn, docln, pocrn, pocln,  = y
-        resp_docr, resp_docl, resp_poc, resp_poc, = a
+        resp_docr, resp_docl, resp_pocr, resp_pocl, = a
         consumption = consumption.item()
         npp = npp.item() # npp.item()
         growth = growth #growth.item()
@@ -2185,15 +2185,15 @@ def prodcons_module_woDOCL(
         
         
         p = [[carbon_oxygen * npp, 0, 0, 0, 0], # O2 1   [[0, 0, 0, 0, 0, algn * npp * 32/12, 0],
-         [0, 0, 0,  (pocrn * resp_poc * consumption), 0], # DOC-R 2
-         [0, 0, 0, 0, (pocln * resp_poc * consumption) + 0.2 * npp,], # DOC-L 3
+         [0, 0, 0,  (pocrn * resp_pocr * consumption), 0], # DOC-R 2
+         [0, 0, 0, 0, (pocln * resp_pocl * consumption) + 0.2 * npp,], # DOC-L 3
          [0, 0, 0, 0, 0], # POC-R 4
          [0, 0, 0, 0, 0.8*npp ]] # POC-L 5]
         d = [[0, carbon_oxygen* (docrn * resp_docr * consumption), carbon_oxygen *(docln * resp_docl * consumption), carbon_oxygen * (pocrn * resp_poc * consumption), carbon_oxygen * (pocln * resp_poc * consumption)],
          [0, (docrn * resp_docr * consumption), 0, 0, 0],
          [0, 0, (docln * resp_docl * consumption), 0, 0],
-         [0, 0, 0, (pocrn * resp_poc * consumption), 0],
-         [0, 0, 0, 0, (pocln * resp_poc * consumption)]]
+         [0, 0, 0, (pocrn * resp_pocr * consumption), 0],
+         [0, 0, 0, 0, (pocln * resp_pocl * consumption)]]
         #breakpoint()H
         return p,d
 
@@ -2301,7 +2301,7 @@ def prodcons_module_woDOCL(
             H_in = H[dep - 1]
         
         mprk_res = solve_mprk(fun, y0 =  [o2n[dep], docrn[dep], docln[dep], pocrn[dep], pocln[dep]], dt = dt, dx = dx,
-               resp = [resp_docr, resp_docl, resp_poc, resp_poc], theta_r = theta_r, u = u[dep],
+               resp = [resp_docr, resp_docl, resp_pocr, resp_pocl], theta_r = theta_r, u = u[dep],
                volume = volume[dep], k_half = k_half,
                H = H[dep], sw_to_par = sw_to_par, IP_m = IP_m, TP = TP, theta_npp = theta_npp,
                kd_light = kd_light, depth = depth[dep], Jsw = H_in)
@@ -3392,6 +3392,8 @@ def run_wq_model(
   resp_docr = -0.001,
   resp_docl = -0.01,
   resp_poc = -0.1,
+  resp_pocr=-0.1,
+  resp_pocl=-0.1,
   settling_rate = 0.3,
   sediment_rate = 0.01,
   piston_velocity = 1.0,

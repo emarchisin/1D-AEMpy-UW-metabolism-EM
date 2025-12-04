@@ -1872,7 +1872,7 @@ def ice_module(
     
     return dat
 
-def do_sat_calc(temp, baro, altitude = 0, salinity = 0):
+def do_sat_calc(temp, baro=None, altitude = 0, salinity = 0, _warn_printed=[False]):
     mgL_mlL = 1.42905
     
     mmHg_mb = 0.750061683 # conversion from mm Hg to millibars
@@ -1886,7 +1886,13 @@ def do_sat_calc(temp, baro, altitude = 0, salinity = 0):
         
         # estimate pressure by the barometric formula
         baro = (1/mmHg_mb) * mmHg_inHg * standard_pressure_sea_level * exp((-gravitational_acceleration * air_molar_mass * altitude) / (universal_gas_constant * standard_temperature_sea_level))
-    
+   
+    if baro is not None and baro > 2000:
+        baro=baro/100 # Pa -> hPa
+        if not _warn_printed [0]:
+            print(" Warning: barometric pressure > 2000, assuming Pa and converting to hPa") # print warning to user
+            _warn_printed[0]= True 
+            
     u = 10 ** (8.10765 - 1750.286 / (235 + temp)) # u is vapor pressure of water; water temp is used as an approximation for water & air temp at the air-water boundary
     press_corr = (baro*mmHg_mb - u) / (760 - u) # pressure correction is ratio of current to standard pressure after correcting for vapor pressure of water. 0.750061683 mmHg/mb
     
@@ -1894,9 +1900,10 @@ def do_sat_calc(temp, baro, altitude = 0, salinity = 0):
     o2_sat = 2.00907 + 3.22014*ts + 4.05010*ts**2 + 4.94457*ts**3 + -2.56847e-1*ts**4 + 3.88767*ts**5 - salinity*(6.24523e-3 + 7.37614e-3*ts + 1.03410e-2*ts**2 + 8.17083e-3*ts**3) - 4.88682e-7*salinity**2
     return exp(o2_sat) * mgL_mlL * press_corr
 
-def atmospheric_module(
+def atmospheric_module( # EM: I dont think we use this?
         un,
         o2n,
+        Pa,
         area,
         volume,
         depth,
@@ -1922,10 +1929,10 @@ def atmospheric_module(
         k600 =  k_vachon(wind = Uw, area = area[0])
         piston_velocity = k600_to_kgas(k600 = k600, temperature = Tair, gas = "O2")/86400
     
-    o2_sat=do_sat_calc(u[0], 982.2, altitude =altitude)
+    o2_sat=do_sat_calc(u[0], baro=Pa, altitude =altitude)
     atm_flux=piston_velocity*(o2_sat-o2[0]/volume[0])*area[0] #g/s
     o2[0] = (o2[0] +  # m/s g/m3 m2   m/s g/m3 m2 s -> ends up in g O2
-        ( piston_velocity * (do_sat_calc(u[0], 982.2, altitude = altitude) - o2[0]/volume[0]) * area[0] ) * dt)
+        ( piston_velocity * (do_sat_calc(u[0], baro=Pa, altitude = altitude) - o2[0]/volume[0]) * area[0] ) * dt)
 
     end_time = datetime.datetime.now()
     #print("Atm_flux:",atm_flux )#+ str(end_time - start_time))
@@ -2184,17 +2191,36 @@ def prodcons_module_woDOCL(
         q = 0.015
         e = 0.95
         
+        #Production matrix (5x5) <---- EM: Restructure code for ease of viewing
+        p = np.zeros((5,5), dtype=float) #Create matrix of 0s
+        p[0,0]=carbon_oxygen * npp #O2 production from NPP
+        p[1,3]=(pocrn * resp_pocr * consumption) #DOC-R from POCr respiration
+        p[2,4]=(pocln * resp_pocl * consumption) + 0.2 * npp #POCl from POCl respiration + small NPP term
+        p[4,4]=(0.8*npp) #POCl production from NPP
         
-        p = [[carbon_oxygen * npp, 0, 0, 0, 0], # O2 1   [[0, 0, 0, 0, 0, algn * npp * 32/12, 0], o2 production from npp
-         [0, 0, 0,  (pocrn * resp_pocr * consumption), 0], # DOC-R 2 from POCr respiration
-         [0, 0, 0, 0, (pocln * resp_pocl * consumption) + 0.2 * npp,], # DOC-L 3 from POCl resp and small npp term
-         [0, 0, 0, 0, 0], # POC-R 4
-         [0, 0, 0, 0, 0.8*npp ]] # POC-L 5] from npp
-        d = [[0, carbon_oxygen* (docrn * resp_docr * consumption), carbon_oxygen *(docln * resp_docl * consumption), carbon_oxygen * (pocrn * resp_pocr * consumption), carbon_oxygen * (pocln * resp_pocl * consumption)],
-         [0, (docrn * resp_docr * consumption), 0, 0, 0],
-         [0, 0, (docln * resp_docl * consumption), 0, 0],
-         [0, 0, 0, (pocrn * resp_pocr * consumption), 0],
-         [0, 0, 0, 0, (pocln * resp_pocl * consumption)]]
+        #Destruction matrix (5x5)
+        d = np.zeros((5,5), dtype=float) #create matrix of 0s
+        d[0,1] = carbon_oxygen * (docrn * resp_docr * consumption) #O2 destroyed from DOCr consumption
+        d[0,2] = carbon_oxygen * (docln * resp_docl * consumption) #O2 destroyed from DOCl consumption
+        d[0,3] = carbon_oxygen * (pocrn * resp_pocr * consumption) #O2 destroyed from POCr consumption
+        d[0,4] = carbon_oxygen * (pocln * resp_pocl * consumption) #O2 destroyed from POCl consumption
+        
+        #diagonal destruction
+        d[1,1] = (docrn * resp_docr * consumption) #DOCr consumption
+        d[2,2] = (docln * resp_docl * consumption) #DOCl consumption
+        d[3,3] = (pocrn * resp_pocr * consumption) #POCr consumption
+        d[4,4] = (pocln * resp_pocl * consumption) #POCl consumption
+        
+        # p = [[carbon_oxygen * npp, 0, 0, 0, 0], # O2 1   [[0, 0, 0, 0, 0, algn * npp * 32/12, 0], o2 production from npp
+        #  [0, 0, 0,  (pocrn * resp_pocr * consumption), 0], # DOC-R 2 from POCr respiration
+        #  [0, 0, 0, 0, (pocln * resp_pocl * consumption) + 0.2 * npp,], # DOC-L 3 from POCl resp and small npp term
+        #  [0, 0, 0, 0, 0], # POC-R 4
+        #  [0, 0, 0, 0, 0.8*npp ]] # POC-L 5] from npp
+        # d = [[0, carbon_oxygen* (docrn * resp_docr * consumption), carbon_oxygen *(docln * resp_docl * consumption), carbon_oxygen * (pocrn * resp_pocr * consumption), carbon_oxygen * (pocln * resp_pocl * consumption)],
+        #  [0, (docrn * resp_docr * consumption), 0, 0, 0],
+        #  [0, 0, (docln * resp_docl * consumption), 0, 0],
+        #  [0, 0, 0, (pocrn * resp_pocr * consumption), 0],
+        #  [0, 0, 0, 0, (pocln * resp_pocl * consumption)]]
         #breakpoint()H
         return p,d
 
@@ -2935,7 +2961,7 @@ def boundary_module_oxygen(
     #Han and Bartels 1996
     d_sod = 10**(-4.410 + 773.8 /(u[nx-1] + 273.15) - (506.4/(u[nx-1] + 273.15))**2) / 10000
 
-    atm_flux = piston_velocity * (do_sat_calc(u[0], 982.2, altitude = altitude) - o2[0]/volume[0]) * area[0] #adjust for altitude
+    atm_flux = piston_velocity * (do_sat_calc(u[0], baro=Pa, altitude = altitude) - o2[0]/volume[0]) * area[0] #adjust for altitude
     
     o2[0] = o2[0] +  (atm_flux * dt)# m/s g/m3 m2   m/s g/m3 m2 s
         

@@ -10,33 +10,35 @@ import datetime
 import matplotlib.pyplot as plt
 import seaborn as sns
 from numba import jit
+from functools import reduce
 
 #os.chdir("/home/robert/Projects/1D-AEMpy/src")
 #os.chdir("C:/Users/ladwi/Documents/Projects/R/1D-AEMpy/src")
 #os.chdir("D:/bensd/Documents/Python_Workspace/1D-AEMpy/src")
-#os.chdir("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/src")
+os.chdir("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/src")
 from processBased_lakeModel_functions import get_hypsography, provide_meteorology, initial_profile, run_wq_model, wq_initial_profile, provide_phosphorus, provide_carbon, do_sat_calc, calc_dens,atmospheric_module, get_secview, get_lake_config, get_model_params, get_run_config, get_ice_and_snow , get_num_data_columns#, heating_module, diffusion_module, mixing_module, convection_module, ice_module
 
 
 
 Start = datetime.datetime.now()
 num_lakes = get_num_data_columns(
-    "../input/lake_config_test.csv", "Zmax"
+    "../input/ME/lake_config.csv", "Zmax"
 )
 
 for lake_num in range(1, num_lakes + 1):
+
    
     lake_config = get_lake_config( # RL: added Longitdue, Latitude and Elevation
-        "../input/lake_config_test.csv", lake_num
+        "../input/ME/lake_config.csv", lake_num
     )
     model_params = get_model_params(
-        "../input/model_params_test.csv", lake_num
+        "../input/ME/model_params.csv", lake_num
     )
     run_config = get_run_config(
-        "../input/run_config_test.csv", lake_num
+        "../input/ME/run_config.csv", lake_num
     )
     ice_and_snow = get_ice_and_snow(
-        "../input/ice_and_snow_test.csv", lake_num
+        "../input/ME/ice_and_snow.csv", lake_num
     )
     windfactor = float(lake_config["WindSpeed"])
     zmax = lake_config['Zmax']
@@ -44,7 +46,7 @@ for lake_num in range(1, num_lakes + 1):
     dt = float(run_config["dt"])# 24 hours times 60 min/hour times 60 seconds/min to convert s to day
     dx = float(run_config["dx"]) # spatial step
     ## area and depth values of our lake 
-    area, depth, volume, hypso_weight = get_hypsography(hypsofile = '../input/bathymetry.csv',
+    area, depth, volume, hypso_weight = get_hypsography(hypsofile = '../input/ME/bathymetry.csv',
                             dx = dx, nx = nx, outflow_depth=float(lake_config["outflow_depth"]))
     #area, depth, volume = get_hypsography(hypsofile = '../input/bathymetry.csv',
       #                      dx = dx, nx = nx)
@@ -54,7 +56,7 @@ for lake_num in range(1, num_lakes + 1):
     meteo_all = provide_meteorology(meteofile = run_config["meteo_ini_file"], 
                     windfactor = windfactor, lat = lake_config["Latitude"], lon = lake_config["Longitude"], elev = lake_config["Elevation"])
 
-    pd.DataFrame(meteo_all).to_csv("../input/NLDAS-ME-meteo16-24.csv", index = False)
+    pd.DataFrame(meteo_all).to_csv("../input/ME/NLDAS-ME-meteo16-24.csv", index = False)
                      
     ## time step discretization 
 
@@ -98,15 +100,15 @@ for lake_num in range(1, num_lakes + 1):
     tp_boundary = provide_phosphorus(tpfile =  run_config["tp_ini_file"], 
                                  startingDate = startingDate,
                                  startTime = startTime)
-    carbon = provide_carbon(docfile =  run_config["doc_ini_file"], # RL: carbon driver?
-                                 startingDate=pd.to_datetime("2022-05-30 09:00:00"),
+    carbon = provide_carbon(ocloadfile =  run_config["oc_load_file"], # RL: carbon driver?
+                                 startingDate=startingDate,
                                  startTime = startTime)
-    carbon = carbon.dropna(subset=['doc_mgl'])
+    carbon = carbon.dropna(subset=['oc'])
     res = run_wq_model(
         # RUNTIME CONFIG
         lake_num=lake_num,
-        startTime=startTime, #-6 = conversion from UTC to CST
-        endTime=endTime ,  #-6 = conversion from UTC to CST
+        startTime=startTime,# -6,# = conversion from UTC to CST
+        endTime=endTime,# -6, #= conversion from UTC to CST
         nx=run_config["nx"],
         dt=run_config["dt"],
         dx=run_config["dx"],
@@ -124,6 +126,10 @@ for lake_num in range(1, num_lakes + 1):
         outflow_depth=lake_config['outflow_depth'],
         mean_depth=sum(volume) / max(area),
         hypso_weight=hypso_weight,
+        altitude=lake_config['Elevation'],
+        #elev=altitude,
+        lat=lake_config['Latitude'],
+        long=lake_config['Longitude'],
 
         # MODEL PARAMS - initial conditions
         u=deepcopy(u_ini),  # already read
@@ -150,14 +156,15 @@ for lake_num in range(1, num_lakes + 1):
         Ice_min=ice_and_snow["Ice_min"],
         KEice=ice_and_snow["KEice"],
         rho_snow=ice_and_snow["rho_snow"],
+    
 
         # mixing and physical transport
         km=model_params["km"],
         k0=model_params["k0"],
         weight_kz=model_params["weight_kz"],
-        piston_velocity=model_params["piston_velocity"],
+        piston_velocity=model_params["piston_velocity"]/86400,
         Cd=model_params["Cd"],
-        hydro_res_time_hr=model_params["hydro_res_time_hr"],
+        hydro_res_time_hr=model_params["hydro_res_time"]*8760,
         W_str=(
             None if pd.isna(model_params["W_str"])
             else model_params["W_str"]
@@ -167,8 +174,8 @@ for lake_num in range(1, num_lakes + 1):
         # light & heat fluxes
         kd_light=model_params["kd_light"],
         light_water=model_params["light_water"],
-        light_doc=model_params["LECDOCR"],
-        light_poc=model_params["LECPOCR"],
+        light_doc=model_params["light_doc"],
+        light_poc=model_params["light_poc"],
         albedo=lake_config["Albedo"],
         eps=model_params["eps"],
         emissivity=model_params["emissivity"],
@@ -180,18 +187,20 @@ for lake_num in range(1, num_lakes + 1):
         Hgeo=model_params["Hgeo"],
 
         # biogeochemical params
-        resp_docr=model_params["RDOCR"],
-        resp_docl=model_params["RDOCL"],
-        resp_poc=model_params["RPOCR"],
-        sed_sink=model_params["sed_sink"],
-        settling_rate=model_params["settling_rate"],
-        sediment_rate=model_params["sediment_rate"],
+        resp_docr=model_params["resp_docr"]/86400,
+        resp_docl=model_params["resp_docl"]/86400,
+        resp_pocr=model_params["resp_poc"]/86400,
+        resp_pocl=model_params["resp_poc"]/86400,
+        resp_poc=model_params["resp_poc"]/86400,
+        sed_sink=model_params["sed_sink"]/86400,
+        settling_rate=model_params["settling_rate"]/86400,
+        sediment_rate=model_params["sediment_rate"]/86400,
         theta_npp=model_params["theta_npp"],
-        theta_r=model_params["RTheta"],
+        theta_r=model_params["theta_r"],
         conversion_constant=model_params["conversion_constant"],
         k_half=model_params["k_half"],
-        p_max=model_params["p_max"],
-        IP=model_params["IP"],
+        p_max=model_params["p_max"]/86400,
+        IP=model_params["IP"]/86400,
 
         # carbon pool partitioning
         prop_oc_docr=model_params["prop_oc_docr"],
@@ -244,9 +253,10 @@ print(End - Start)
 ####diagnistic graphs###
 light=meteo_all['Shortwave_Radiation_Downwelling_wattPerMeterSquared'].iloc[int(startTime):int(endTime)].reset_index(drop=True)
 wind=meteo_all['Ten_Meter_Elevation_Wind_Speed_meterPerSecond'].iloc[int(startTime):int(endTime)].reset_index(drop=True)
+precip=meteo_all['Precipitation_millimeterPerDay'].iloc[int(startTime):int(endTime)].reset_index(drop=True)
 #times2 = meteo_all[0]['datetime']
 
-fig,axis=plt.subplots(2,1,figsize=(12,6),sharex=True)
+fig,axis=plt.subplots(3,1,figsize=(12,6),sharex=True)
 axis[0].plot(times, light, color='goldenrod')
 axis[0].set_ylabel('Light (µmol/m²/s)')
 axis[0].set_title('Meteorology: Light and Wind')
@@ -254,6 +264,10 @@ axis[0].set_title('Meteorology: Light and Wind')
 axis[1].plot(times, wind, color='steelblue')
 axis[1].set_ylabel('Wind (m/s)')
 axis[1].set_xlabel('Time')
+
+axis[2].plot(times, precip, color='red')
+axis[2].set_ylabel('Precip(mm/d)')
+axis[2].set_xlabel('Time')
 
 plt.tight_layout()
 plt.show()
@@ -326,7 +340,7 @@ n_years = float(n_days / 365)
 
 
 fig, ax = plt.subplots(figsize=(15,5))
-sns.heatmap(temp, cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2, vmin = 0, vmax = 30)
+sns.heatmap(temp, cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2)#, vmin = 0, vmax = 30)
 ax.contour(np.arange(.5, temp.shape[1]), np.arange(.5, temp.shape[0]), calc_dens(temp), levels=[999],
            colors=['black', 'gray'],
            linestyles = 'dotted')
@@ -564,6 +578,71 @@ plt.plot(times, thermo_dep[0,:]*dx,color= 'blue')
 plt.plot(times, temp[0,:] - temp[(nx-1),:], color = 'red')
 plt.show()
 
+#Diagnostic graphs at depth 
+depths = [1,44]   # Python indices for depth=1 and depth=12
+labels = ['Depth 1', 'Depth 22']
+
+doc_total = np.add(docl, docr)
+poc_total = np.add(pocl, pocr)
+# Plot DO
+plt.figure(figsize=(10, 5))
+for i, d in enumerate(depths):
+    plt.plot(times, o2[d, :] / volume[d], label=f'DO at {labels[i]}', linestyle='-', color=('blue' if d == 1 else 'cyan'))
+plt.ylabel("DO (mg/L)")
+plt.xlabel("Time")
+plt.legend()
+plt.title("Dissolved Oxygen (DO)")
+plt.show()
+
+
+plt.figure(figsize=(10, 5))
+for i, d in enumerate(depths):
+    max_doc = (doc_total[d, :] / volume[d]).max()   # take max over time
+    print(f"Depth index {d}: max DOC total = {max_doc:.2f} mg/L")
+    plt.plot(times, doc_total[d, :]/volume [d], label=f'DOC at {labels[i]}', linestyle='-', color=('green' if d == 1 else 'lightgreen'))
+plt.ylabel("DOC (mg/L)")
+plt.xlabel("Time")
+#plt.ylim(0, 8)
+plt.legend()
+plt.title("Dissolved Organic Carbon Total (DOC-tot)")
+plt.show()
+
+plt.figure(figsize=(10, 5))
+for i, d in enumerate(depths):
+    max_doc = (docl[d, :] / volume[d]).max()   # take max over time
+    print(f"Depth index {d}: max DOCl = {max_doc:.2f} mg/L")
+    plt.plot(times, docl[d, :]/volume [d], label=f'DOC at {labels[i]}', linestyle='-', color=('green' if d == 1 else 'lightgreen'))
+plt.ylabel("DOC (mg/L)")
+plt.xlabel("Time")
+#plt.ylim(0, 8)
+plt.legend()
+plt.title("Dissolved Organic Carbon Laible (DOCl)")
+plt.show()
+
+plt.figure(figsize=(10, 5))
+for i, d in enumerate(depths):
+    max_doc = (docr[d, :] / volume[d]).max()   # take max over time
+    print(f"Depth index {d}: max DOCr = {max_doc:.2f} mg/L")
+    plt.plot(times, docr[d, :]/volume [d], label=f'DOC at {labels[i]}', linestyle='-', color=('green' if d == 1 else 'lightgreen'))
+plt.ylabel("DOC (mg/L)")
+plt.xlabel("Time")
+#plt.ylim(0, 8)
+plt.legend()
+plt.title("Dissolved Organic Carbon Recalcitrant (DOCr)")
+plt.show()
+
+# Plot POC
+plt.figure(figsize=(10, 5))
+for i, d in enumerate(depths):
+    plt.plot(times, poc_total[d, :]/volume[d], label=f'POC at {labels[i]}', linestyle='-', color=('orange' if d == 1 else 'gold'))
+plt.ylabel("POC (mg/L)")
+plt.xlabel("Time")
+#plt.ylim(0, 8)
+plt.legend()
+plt.title("Particulate Organic Carbon (POC)")
+plt.show()
+
+
 # TODO
 # air water exchange
 # sediment loss POC
@@ -572,14 +651,14 @@ plt.show()
 # phosphorus bcDesktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/
 # ice npp
 # wind mixingS
-poc_all = np.add(pocl, pocr)
+poc_tot = np.add(pocl, pocr)
 pd.DataFrame(temp).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_temp.csv")
 pd.DataFrame(o2).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_do.csv")
 pd.DataFrame((o2/ volume[:, np.newaxis]).T).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_do_mgL.csv")
 pd.DataFrame(docr).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB MEME.modeled_docr.csv")
 pd.DataFrame(docl).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_docl.csv")
 pd.DataFrame(pocl).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_pocl.csv")
-pd.DataFrame((poc_all/ volume[:, np.newaxis]).T).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_pocall_ugL.csv")
+pd.DataFrame((poc_tot/ volume[:, np.newaxis]).T).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_pocall_ugL.csv")
 pd.DataFrame(pocr).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_pocr.csv")
 pd.DataFrame(secchi).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_secchi.csv")
 pd.DataFrame(thermo_dep).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/output/PB ME/ME.modeled_thermo_dep.csv")
@@ -596,8 +675,8 @@ pd.DataFrame(times).to_csv("/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-
 
 
 # label = 116
-# doc_all = np.add(docl, docr)
-# poc_all = np.add(pocl, pocr)
+# doc_tot = np.add(docl, docr)
+# poc_tot = np.add(pocl, pocr)
 # os.mkdir("../parameterization/output/Run_"+str(label))
 # pd.DataFrame(temp).to_csv("../parameterization/output/Run_"+str(label)+"/temp.csv", index = False)
 # pd.DataFrame(o2).to_csv("../parameterization/output/Run_"+str(label)+"/do.csv", index = False)

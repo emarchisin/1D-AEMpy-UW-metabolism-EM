@@ -332,7 +332,7 @@ def provide_meteorology(meteofile, windfactor, lat, lon, elev):
                                                 relh = daily_meteo['Relative_Humidity_percent'],
                                                 swr = daily_meteo['Shortwave_Radiation_Downwelling_wattPerMeterSquared'],
                                                 lat =  lat, lon = lon,
-                                                elev = lon)
+                                                elev = elev)
 
     
     #daily_meteo['dt'] = (daily_meteo['date'] - daily_meteo['date'][0]).astype('timedelta64[s]') + 1
@@ -485,51 +485,52 @@ def provide_phosphorus(tpfile, startingDate, startTime):
     return(daily_tp)
 
 
-def provide_carbon(docfile, startingDate, startTime):
-    # Read DOC input file
-    doc = pd.read_csv(docfile)
-    doc['datetime'] = pd.to_datetime(doc['datetime'])
-    doc["date"] = doc["datetime"]
+def provide_carbon(ocloadfile, startingDate, startTime):
+    # Read OC load input file
+    oc_load = pd.read_csv(ocloadfile)
+    oc_load['datetime'] = pd.to_datetime(oc_load['datetime'])
+    oc_load["date"] = oc_load["datetime"]
     full_range = pd.date_range(
-        start = doc['date'].min(), 
-        end = doc['date'].max(),
+        start = oc_load['date'].min(), 
+        end = oc_load['date'].max(),
         freq = "H"
     )
     expanded = pd.DataFrame({"datetime": full_range})
-    expanded = expanded.merge(doc, on = "datetime", how = "left")
+    expanded = expanded.merge(oc_load, on = "datetime", how = "left")
     expanded = expanded.ffill()
-    doc = expanded
+    oc_load = expanded
 
     # Filter data starting from model start date
-    daily_doc = doc.loc[
-    (doc['date'] >= startingDate) ]
-    daily_doc['ditt'] = abs(daily_doc['date'] - startingDate)
+    daily_oc = oc_load.loc[
+    (oc_load['date'] >= startingDate) ]
+    daily_oc['ditt'] = abs(daily_oc['date'] - startingDate)
 
    
 
     # If startingDate precedes data, insert an initial row
-    if startingDate < daily_doc['date'].min():
+    if startingDate < daily_oc['date'].min():
         first_row = {
             'datetime': startingDate,
-            'discharge': doc['discharge'].iloc[0],
-            'doc_mgl': doc['doc_mgl'].iloc[0],
+            'discharge': oc_load['discharge'].iloc[0],
+            'oc': oc_load['oc'].iloc[0],
             'date': startingDate,
-            'ditt': (daily_doc['date'].iloc[0] - startingDate)
+            'ditt': (daily_oc['date'].iloc[0] - startingDate)
         }
-        daily_doc = pd.concat([pd.DataFrame([first_row]), daily_doc], ignore_index=True)
+        daily_oc = pd.concat([pd.DataFrame([first_row]), daily_oc], ignore_index=True)
 
     # Compute time offset from simulation start
-    print("Unique datetimes in daily_doc:")
-    print(daily_doc['date'].unique())
-    print("Shape:", daily_doc.shape)
+    print("Unique datetimes in daily_oc:")
+    print(daily_oc['date'].unique())
+    print("Shape:", daily_oc.shape)
 
-    daily_doc['dt'] = (daily_doc['date'] - daily_doc['date'].iloc[0]).dt.total_seconds() + startTime
-    #compute total carbon load as doc_mgl * discharge
-    daily_doc['total_carbon'] = daily_doc['doc_mgl'] * daily_doc['discharge']
+    daily_oc['dt'] = (daily_oc['date'] - daily_oc['date'].iloc[0]).dt.total_seconds() + startTime
+    #compute total carbon load as oc_mgl * discharge
+    daily_oc['total_carbon'] = daily_oc['oc'] * daily_oc['discharge']
+    daily_oc['hourly_carbon']=daily_oc['total_carbon']/24
 
     #fill in hourly times
 
-    return daily_doc
+    return daily_oc
 
 def initial_profile(initfile, nx, dx, depth, startDate):
   #meteo = processed_meteo
@@ -1904,7 +1905,8 @@ def atmospheric_module(
         Tair,
         Uw,
         at_factor = 1.0,
-        wind_factor = 1.0
+        wind_factor = 1.0, 
+        altitude=0
         ):
 
     start_time = datetime.datetime.now()
@@ -1920,10 +1922,10 @@ def atmospheric_module(
         k600 =  k_vachon(wind = Uw, area = area[0])
         piston_velocity = k600_to_kgas(k600 = k600, temperature = Tair, gas = "O2")/86400
     
-    o2_sat=do_sat_calc(u[0], 982.2, altitude = 258)
+    o2_sat=do_sat_calc(u[0], 982.2, altitude =altitude)
     atm_flux=piston_velocity*(o2_sat-o2[0]/volume[0])*area[0] #g/s
     o2[0] = (o2[0] +  # m/s g/m3 m2   m/s g/m3 m2 s -> ends up in g O2
-        ( piston_velocity * (do_sat_calc(u[0], 982.2, altitude = 258) - o2[0]/volume[0]) * area[0] ) * dt)
+        ( piston_velocity * (do_sat_calc(u[0], 982.2, altitude = altitude) - o2[0]/volume[0]) * area[0] ) * dt)
 
     end_time = datetime.datetime.now()
     #print("Atm_flux:",atm_flux )#+ str(end_time - start_time))
@@ -1973,7 +1975,7 @@ def boundary_module(
         sw_factor = 1.0,
         at_factor = 1.0,
         # turb_factor = 1.0,
-        # wind_factor = 1.0,
+        #wind_factor = 1.0,
         p_max = 1.0/86400,
         IP = 0.1,
         theta_npp = 1.08,
@@ -2091,7 +2093,7 @@ def prodcons_module_woDOCL(
         resp_pocr = -0.1,
         resp_pocl = -0.1,
         resp_poc = -0.1,
-        grazing_rate = -0.1,
+        #grazing_rate = -0.1,not used in function
         Hi = 0,
         kd_snow = 0.9,
         rho_fw = 1000,
@@ -2115,7 +2117,7 @@ def prodcons_module_woDOCL(
         piston_velocity = 1.0,
         sw_to_par = 2.114,
         growth_rate = 1.1,
-        grazing_ratio = 0.1,
+        #grazing_ratio = 0.1,not used in function
         alpha_gpp = 0.1/3600,
         beta_gpp = 4.2/3600,
         o2_to_chla = 41.5/3600): 
@@ -2171,8 +2173,10 @@ def prodcons_module_woDOCL(
     
     def fun(y, a, consumption, npp, growth, temp):
         #"Production and destruction term for a simple linear model."
+
         o2n, docrn, docln, pocrn, pocln,  = y
         resp_docr, resp_docl, resp_poc, = a
+
         consumption = consumption.item()
         npp = npp.item() # npp.item()
         growth = growth #growth.item()
@@ -2184,6 +2188,7 @@ def prodcons_module_woDOCL(
         
         #breakpoint()
         
+
         #p = [[0, 0, 0, 0, 0], # O2 1   [[0, 0, 0, 0, 0, algn * npp * 32/12, 0],
         p = [[carbon_oxygen * npp, 0, 0, 0, 0],
          [0, 0, 0,  (pocrn * resp_poc * consumption), 0], # DOC-R 2
@@ -2191,7 +2196,7 @@ def prodcons_module_woDOCL(
          [0, 0, 0, 0, 0], # POC-R 4
          [0, 0, 0, 0, 0.8*npp ]] # POC-L 5]
        # d = [[0, 0, 0,0, 0],
-        d = [[0, carbon_oxygen* (docrn * resp_docr * consumption), carbon_oxygen *(docln * resp_docl * consumption), carbon_oxygen * (resp_poc * resp_pocr * consumption), carbon_oxygen * (pocln * resp_poc * consumption)],
+        d = [[0, carbon_oxygen* (docrn * resp_docr * consumption), carbon_oxygen *(docln * resp_docl * consumption), carbon_oxygen * (pocrn * resp_pocr * consumption), carbon_oxygen * (pocln * resp_poc * consumption)],
          [0, (docrn * resp_docr * consumption), 0, 0, 0],
          [0, 0, (docln * resp_docl * consumption), 0, 0],
          [0, 0, 0, (pocrn * resp_poc * consumption), 0],
@@ -2851,6 +2856,7 @@ def boundary_module_oxygen(
         nx,
         dt,
         dx,
+        altitude,
         ice,
         kd_ice,
         Tair,
@@ -2942,7 +2948,7 @@ def boundary_module_oxygen(
     #Han and Bartels 1996
     d_sod = 10**(-4.410 + 773.8 /(u[nx-1] + 273.15) - (506.4/(u[nx-1] + 273.15))**2) / 10000
 
-    atm_flux = piston_velocity * (do_sat_calc(u[0], 982.2, altitude = 258) - o2[0]/volume[0]) * area[0]
+    atm_flux = piston_velocity * (do_sat_calc(u[0], 982.2, altitude = altitude) - o2[0]/volume[0]) * area[0] #adjust for altitude
     
     o2[0] = o2[0] +  (atm_flux * dt)# m/s g/m3 m2   m/s g/m3 m2 s
         
@@ -3349,6 +3355,9 @@ def run_wq_model(
   dt,
   dx,
   daily_meteo,
+  altitude,
+  lat,
+  long,
   secview,
   phosphorus_data,
   mean_depth,
@@ -3403,6 +3412,8 @@ def run_wq_model(
   resp_docr = -0.001,
   resp_docl = -0.01,
   resp_poc = -0.1,
+  resp_pocr= -0.1,
+  resp_pocl= -0.1,
   settling_rate = 0.3,
   sediment_rate = 0.01,
   piston_velocity = 1.0,
@@ -3450,8 +3461,8 @@ def run_wq_model(
   TP = interp1d(phosphorus_data.dt.values, phosphorus_data.tp.values, kind = "linear", fill_value=TP_fillvals, bounds_error=False)
 
 #carbon interpol
-  carbon_fillvals = tuple(oc_load_input.total_carbon.values[[0,-1]])
-  carbon = interp1d(oc_load_input['dt'].values, oc_load_input['total_carbon'].values,
+  carbon_fillvals = tuple(oc_load_input.hourly_carbon.values[[0,-1]])
+  carbon = interp1d(oc_load_input['dt'].values, oc_load_input['hourly_carbon'].values,
               kind="linear", fill_value="extrapolate", bounds_error=False)
   
   
@@ -3535,13 +3546,15 @@ def run_wq_model(
     #perdepth_oc = carbon(n) / int(outflow_depth * 2)
     perdepth_docr = perdepth_oc * prop_oc_docr
     perdepth_docl = perdepth_oc * prop_oc_docl
-    perdepth_pocr = perdepth_oc * prop_oc_pocl
+    perdepth_pocr = perdepth_oc * prop_oc_pocr
     perdepth_pocl = perdepth_oc * prop_oc_pocl
     
+
     #print(idn)
     if idn % 1000 == 0:
         
         print (f"iteration: {idn} for lake: {lake_num}")
+        
           
     un = deepcopy(u)
     un_initial = un
@@ -3885,6 +3898,7 @@ def run_wq_model(
         dt = dt,
         dx = dx,
         ice = ice,
+        altitude=altitude,
         kd_ice = kd_ice,
         Tair = Tair(n),
         CC = CC(n),
@@ -3902,7 +3916,7 @@ def run_wq_model(
         at_factor = at_factor,
         sw_factor = sw_factor,
         #turb_factor = turb_factor,
-        #wind_factor = wind_factor,
+        wind_factor = wind_factor,
         p_max = p_max,
         IP = IP,
         theta_npp = theta_npp,
@@ -3976,6 +3990,7 @@ def run_wq_model(
         RH = RH(n),
         kd_light = kd_light,
         TP = TP(n),
+        IP=IP,
         nx = nx,
         dt = dt,
         dx = dx,
@@ -3984,7 +3999,9 @@ def run_wq_model(
         k_half = k_half,
         resp_docr = resp_docr,
         resp_docl = resp_docl,
-        resp_poc = resp_poc)
+        resp_poc = resp_poc,
+        resp_pocl=resp_pocl,
+        resp_pocr=resp_pocr)
     
     o2 = prodcons_res['o2']
     docr = prodcons_res['docr']
@@ -4269,16 +4286,16 @@ def run_wq_model(
       um_diff = np.transpose(um_diff)
       um_conv = np.transpose(um_conv)
       um = np.transpose(um)
-      pd.DataFrame(um_initial).to_csv(training_data_path+"/temp_initial00.csv", index = False)
-      pd.DataFrame(um_diff).to_csv(training_data_path+"/temp_diff04.csv", index = False)
-      pd.DataFrame(um_conv).to_csv(training_data_path+"/temp_conv05.csv", index = False)
-      pd.DataFrame(um).to_csv(training_data_path+"/temp_final06.csv", index = False)
+      # pd.DataFrame(um_initial).to_csv(training_data_path+"/temp_initial00.csv", index = False)
+      # pd.DataFrame(um_diff).to_csv(training_data_path+"/temp_diff04.csv", index = False)
+      # pd.DataFrame(um_conv).to_csv(training_data_path+"/temp_conv05.csv", index = False)
+      # pd.DataFrame(um).to_csv(training_data_path+"/temp_final06.csv", index = False)
       
       icem = np.transpose(icem)
-      pd.DataFrame(icem).to_csv(training_data_path+"/ice_final06.csv", index = False)
+      # pd.DataFrame(icem).to_csv(training_data_path+"/ice_final06.csv", index = False)
       
       TPm2 = np.transpose(TPm)
-      pd.DataFrame(TPm2).to_csv(training_data_path+"/tp_initial.csv", index = False)
+      # pd.DataFrame(TPm2).to_csv(training_data_path+"/tp_initial.csv", index = False)
       
       o2_initial = np.transpose(o2_initial)
       o2_ax = np.transpose(o2_ax)
@@ -4286,104 +4303,206 @@ def run_wq_model(
       o2_pd = np.transpose(o2_pd)
       o2_diff = np.transpose(o2_diff)
       o2m = np.transpose(o2m)
-      pd.DataFrame(o2_initial).to_csv(training_data_path+"/do_initial00.csv", index = False)
-      pd.DataFrame(o2_ax).to_csv(training_data_path+"/do_ax01.csv", index = False)
-      pd.DataFrame(o2_bc).to_csv(training_data_path+"/do_bc02.csv", index = False)
-      pd.DataFrame(o2_pd).to_csv(training_data_path+"/do_pd03.csv", index = False)
-      pd.DataFrame(o2_diff).to_csv(training_data_path+"/do_diff04.csv", index = False)
-      pd.DataFrame(o2m).to_csv(training_data_path+"/do_conv05.csv", index = False)
+     # o2_mgL=(o2m/ volume[ np.newaxis,:]).T
+      # pd.DataFrame(o2_initial).to_csv(training_data_path+"/do_initial00.csv", index = False)
+      # pd.DataFrame(o2_ax).to_csv(training_data_path+"/do_ax01.csv", index = False)
+      # pd.DataFrame(o2_bc).to_csv(training_data_path+"/do_bc02.csv", index = False)
+      # pd.DataFrame(o2_pd).to_csv(training_data_path+"/do_pd03.csv", index = False)
+      # pd.DataFrame(o2_diff).to_csv(training_data_path+"/do_diff04.csv", index = False)
+      # pd.DataFrame(o2m).to_csv(training_data_path+"/do_conv05.csv", index = False)
       
       docl_initial = np.transpose(docl_initial)
       docl_bc = np.transpose(docl_bc)
       docl_pd = np.transpose(docl_pd)
       docl_diff = np.transpose(docl_diff)
       doclm = np.transpose(doclm)
-      pd.DataFrame(docl_initial).to_csv(training_data_path+"/docl_initial00.csv", index = False)
-      pd.DataFrame(docl_bc).to_csv(training_data_path+"/docl_bc02.csv", index = False)
-      pd.DataFrame(docl_pd).to_csv(training_data_path+"/docl_pd03.csv", index = False)
-      pd.DataFrame(docl_diff).to_csv(training_data_path+"/docl_diff04.csv", index = False)
-      pd.DataFrame(doclm).to_csv(training_data_path+"/docl_conv05.csv", index = False)
+      # pd.DataFrame(docl_initial).to_csv(training_data_path+"/docl_initial00.csv", index = False)
+      # pd.DataFrame(docl_bc).to_csv(training_data_path+"/docl_bc02.csv", index = False)
+      # pd.DataFrame(docl_pd).to_csv(training_data_path+"/docl_pd03.csv", index = False)
+      # pd.DataFrame(docl_diff).to_csv(training_data_path+"/docl_diff04.csv", index = False)
+      # pd.DataFrame(doclm).to_csv(training_data_path+"/docl_conv05.csv", index = False)
       
       docr_initial = np.transpose(docr_initial)
       docr_bc = np.transpose(docr_bc)
       docr_pd = np.transpose(docr_pd)
       docr_diff = np.transpose(docr_diff)
       docrm = np.transpose(docrm)
-      pd.DataFrame(docr_initial).to_csv(training_data_path+"/docr_initial00.csv", index = False)
-      pd.DataFrame(docr_bc).to_csv(training_data_path+"/docr_bc02.csv", index = False)
-      pd.DataFrame(docr_pd).to_csv(training_data_path+"/docr_pd03.csv", index = False)
-      pd.DataFrame(docr_diff).to_csv(training_data_path+"/docr_diff04.csv", index = False)
-      pd.DataFrame(docrm).to_csv(training_data_path+"/docr_conv05.csv", index = False)
+      doc_tot = np.add(docl, docr)
+      # pd.DataFrame(docr_initial).to_csv(training_data_path+"/docr_initial00.csv", index = False)
+      # pd.DataFrame(docr_bc).to_csv(training_data_path+"/docr_bc02.csv", index = False)
+      # pd.DataFrame(docr_pd).to_csv(training_data_path+"/docr_pd03.csv", index = False)
+      # pd.DataFrame(docr_diff).to_csv(training_data_path+"/docr_diff04.csv", index = False)
+      # pd.DataFrame(docrm).to_csv(training_data_path+"/docr_conv05.csv", index = False)
       
       pocl_initial = np.transpose(pocl_initial)
       pocl_bc = np.transpose(pocl_bc)
       pocl_pd = np.transpose(pocl_pd)
       pocl_diff = np.transpose(pocl_diff)
       poclm = np.transpose(poclm)
-      pd.DataFrame(pocl_initial).to_csv(training_data_path+"/pocl_initial00.csv", index = False)
-      pd.DataFrame(pocl_bc).to_csv(training_data_path+"/pocl_bc02.csv", index = False)
-      pd.DataFrame(pocl_pd).to_csv(training_data_path+"/pocl_pd03.csv", index = False)
-      pd.DataFrame(pocl_diff).to_csv(training_data_path+"/pocl_diff04.csv", index = False)
-      pd.DataFrame(poclm).to_csv(training_data_path+"/pocl_conv05.csv", index = False)
+      poc_tot = np.add(pocl, pocr)
+      # pd.DataFrame(pocl_initial).to_csv(training_data_path+"/pocl_initial00.csv", index = False)
+      # pd.DataFrame(pocl_bc).to_csv(training_data_path+"/pocl_bc02.csv", index = False)
+      # pd.DataFrame(pocl_pd).to_csv(training_data_path+"/pocl_pd03.csv", index = False)
+      # pd.DataFrame(pocl_diff).to_csv(training_data_path+"/pocl_diff04.csv", index = False)
+      # pd.DataFrame(poclm).to_csv(training_data_path+"/pocl_conv05.csv", index = False)
       
       pocr_initial = np.transpose(pocr_initial)
       pocr_bc = np.transpose(pocr_bc)
       pocr_pd = np.transpose(pocr_pd)
       pocr_diff = np.transpose(pocr_diff)
       pocrm = np.transpose(pocrm)
-      pd.DataFrame(pocr_initial).to_csv(training_data_path+"/pocr_initial00.csv", index = False)
-      pd.DataFrame(pocr_bc).to_csv(training_data_path+"/pocr_bc02.csv", index = False)
-      pd.DataFrame(pocr_pd).to_csv(training_data_path+"/pocr_pd03.csv", index = False)
-      pd.DataFrame(pocr_diff).to_csv(training_data_path+"/pocr_diff04.csv", index = False)
-      pd.DataFrame(pocrm).to_csv(training_data_path+"/pocr_conv05.csv", index = False)
+      # pd.DataFrame(pocr_initial).to_csv(training_data_path+"/pocr_initial00.csv", index = False)
+      # pd.DataFrame(pocr_bc).to_csv(training_data_path+"/pocr_bc02.csv", index = False)
+      # pd.DataFrame(pocr_pd).to_csv(training_data_path+"/pocr_pd03.csv", index = False)
+      # pd.DataFrame(pocr_diff).to_csv(training_data_path+"/pocr_diff04.csv", index = False)
+      # pd.DataFrame(pocrm).to_csv(training_data_path+"/pocr_conv05.csv", index = False)
       
       pd.DataFrame(o2m / np.transpose(volume)).to_csv(training_data_path+"/do_final06.csv", index = False)
       doc_final = np.add(doclm, docrm) / np.transpose(volume)
       poc_final = np.add(poclm, pocrm) / np.transpose(volume)
-      pd.DataFrame(doc_final).to_csv(training_data_path+"/doc_final06.csv", index = False)
-      pd.DataFrame(poc_final).to_csv(training_data_path+"/poc_final06.csv", index = False)
+      # pd.DataFrame(doc_final).to_csv(training_data_path+"/doc_final06.csv", index = False)
+      # pd.DataFrame(poc_final).to_csv(training_data_path+"/poc_final06.csv", index = False)
       
       secchim = np.transpose(1.7/kd_lightm)
-      pd.DataFrame(secchim).to_csv(training_data_path+"/secchi_final06.csv", index = False)
+      # pd.DataFrame(secchim).to_csv(training_data_path+"/secchi_final06.csv", index = False)
       
       nppm = np.transpose(nppm)
       docr_respirationm = np.transpose(docr_respirationm)
       docl_respirationm = np.transpose(docl_respirationm)
       poc_respirationm = np.transpose(poc_respirationm)
-      pd.DataFrame(nppm).to_csv(training_data_path+"/npp_bc02.csv", index = False)
-      pd.DataFrame(docr_respirationm).to_csv(training_data_path+"/docr_resp_pd03.csv", index = False)
-      pd.DataFrame(docl_respirationm).to_csv(training_data_path+"/docl_resp_pd03.csv", index = False)
-      pd.DataFrame(poc_respirationm).to_csv(training_data_path+"/poc_resp_pd03.csv", index = False)
+      # pd.DataFrame(nppm).to_csv(training_data_path+"/npp_bc02.csv", index = False)
+      # pd.DataFrame(docr_respirationm).to_csv(training_data_path+"/docr_resp_pd03.csv", index = False)
+      # pd.DataFrame(docl_respirationm).to_csv(training_data_path+"/docl_resp_pd03.csv", index = False)
+      # pd.DataFrame(poc_respirationm).to_csv(training_data_path+"/poc_resp_pd03.csv", index = False)
       
-      pd.DataFrame(ko2_calcm).to_csv(training_data_path+"/ko2_final06.csv", index = False)
+      # pd.DataFrame(ko2_calcm).to_csv(training_data_path+"/ko2_final06.csv", index = False)
       
-      pd.DataFrame(area).to_csv(training_data_path+"/area_input.csv", index = False)
-      pd.DataFrame(volume).to_csv(training_data_path+"/volume_input.csv", index = False)
-      pd.DataFrame(depth).to_csv(training_data_path+"/depth_input.csv", index = False)
-      pd.DataFrame(depth).to_csv(training_data_path+"/depth_input.csv", index = False)
+      # pd.DataFrame(area).to_csv(training_data_path+"/area_input.csv", index = False)
+      # pd.DataFrame(volume).to_csv(training_data_path+"/volume_input.csv", index = False)
+      # pd.DataFrame(depth).to_csv(training_data_path+"/depth_input.csv", index = False)
+      # pd.DataFrame(depth).to_csv(training_data_path+"/depth_input.csv", index = False)
       
       #thermo_depm = np.transpose(thermo_depm)
       kzm = np.transpose(kzm)
       #pd.DataFrame(thermo_depm).to_csv(training_data_path+"/thermo_depth_final06.csv", index = False)
-      pd.DataFrame(kzm).to_csv(training_data_path+"/kz_initial00.csv", index = False)
+      # pd.DataFrame(kzm).to_csv(training_data_path+"/kz_initial00.csv", index = False)
       
       
-      filenames = next(os.walk(training_data_path), (None, None, []))[2]
-      for name in filenames:
-          if "0" in name:
-              print("editing " + name)
-              fullname = training_data_path+'/'+name
-              df = pd.read_csv(fullname)
-              if "final" in name:
-                  new_columns = {col: ((float(col)+1)/2)-0.5 for col in df.columns}
-                  df.rename(columns=new_columns, inplace=True)
-              df.index = timelabels
-              df.index.names = ["datetime"]
-              os.remove(fullname)
-              df.to_csv(fullname)
-              
-      
-  
+      # filenames = next(os.walk(training_data_path), (None, None, []))[2]
+      # for name in filenames:
+      #     if "0" in name:
+      #         print("editing " + name)
+      #         fullname = training_data_path+'/'+name
+      #         df = pd.read_csv(fullname)
+      #         if "final" in name:
+      #             new_columns = {col: ((float(col)+1)/2)-0.5 for col in df.columns}
+      #             df.rename(columns=new_columns, inplace=True)
+      #         df.index = timelabels
+      #         df.index.names = ["datetime"]
+      #         os.remove(fullname)
+      #         df.to_csv(fullname)
+
+
+      def melt_var(arr_2d, times, depth, varname):
+          arr_2d = np.asarray(arr_2d)  # shape = (depth, time)
+          if arr_2d.shape[0] == len(times) and arr_2d.shape[1] == len(depth):
+              arr_2d = arr_2d.T 
+          n_depths, n_times = arr_2d.shape
+
+          return pd.DataFrame({
+              "datetime": np.repeat(pd.to_datetime(times), n_depths),
+              "depth": np.tile(depth, n_times),varname: arr_2d.flatten()
+          })
+     
+      # Build long tables for all variables
+      print("DEBUG SHAPES:")
+      print("depth length:", len(depth))
+      print("times length:", len(times))
+
+      print("um shape:", np.asarray(um).shape)
+      #print("o2 shape:", np.asarray(o2_mgL).shape)
+      print("doc_final shape:", np.asarray(doc_final).shape)
+      print("poc_final shape:", np.asarray(poc_final).shape)
+      print("TPm shape:", np.asarray(TPm).shape)
+#       dfs = []
+
+#       dfs.append(melt_var(um,times, depth, "WaterTemp_C"))
+#       dfs.append(melt_var(o2_mgL, times, depth, "Water_DO_mg_per_L"))
+#       dfs.append(melt_var(doc_final,times, depth, "Water_DOC_mg_per_L"))
+#       dfs.append(melt_var(poc_final,times, depth, "Water_POC_mg_per_L"))
+#       #dfs.append(melt_var(TPm,             times, depth, "Water_TP_mg_per_L"))
+
+# # Merge all variables by datetime + depth
+#       fm_lake = dfs[0]
+#       for df in dfs[1:]:
+#           fm_lake = fm_lake.merge(df, on=["datetime", "depth"], how="left")
+
+# # Create daily date column
+#       fm_lake["date"] = fm_lake["datetime"].dt.floor("D")
+#       fm_lake_daily = (
+#           fm_lake
+#           .groupby(["date", "depth"])
+#           .mean(numeric_only=True)
+#           .reset_index()
+#       )
+
+#       fm_lake_daily.to_csv(training_data_path + "fm_lake_daily.csv", index=False)
+
+
+#     #pd.DataFrame(fm_lake_daily).to_csv(training_data_path+"fm_lake_daily.csv", index = False)
+
+#     #   fm_driver=pd.DataFrame({'datetime':times})
+#     #   fm_driver['LightAttenutation_Kd']=kd_lightm.T.flatten()
+#     #   fm_driver['Water_Secchi_m']=secchim.T.flatten()
+#     #   #fm_driver['TOC_load_g_per_d']=total_carbon.T.flatten()
+#     #   fm_driver['thermocline_depth_m']=thermo_depm.T.flatten()
+#     # #fm_driver['Discharge_m3_per_d']=p.repeat(discharge)
+#     #   #meteo_pgdl = res['meteo_input']
+#     #   fm_driver['AirTemp_C'] = meteo_pgdl[0, :]
+#     #   fm_driver['sum_Longwave_Radiation_Downwelling_wattPerMeterSquared'] = meteo_pgdl[1, :]
+#     #   fm_driver['Shortwave_Wm2'] = meteo_pgdl[4, :]
+#     #   fm_driver['median_Ten_Meter_Elevation_Wind_Speed_meterPerSecond'] = meteo_pgdl[12, :] 
+#     #   fm_driver['sum_Precipitation_millimeterPerDay'] = meteo_pgdl[15, :]
+    
+#       fm_driver = pd.DataFrame({
+#           'datetime':pd.to_datetime(times),
+#           'LightAttenutation_Kd': kd_lightm.T.flatten(),
+#           'Water_Secchi_m': secchim.T.flatten(),
+#           # 'TOC_load_g_per_d': total_carbon.T.flatten(),
+#           'thermocline_depth_m': thermo_depm.T.flatten(),
+#           'AirTemp_C': meteo_pgdl[0, :],
+#           'sum_Longwave_Radiation_Downwelling_wattPerMeterSquared': meteo_pgdl[1, :],
+#           'Shortwave_Wm2': meteo_pgdl[4, :],
+#           'median_Ten_Meter_Elevation_Wind_Speed_meterPerSecond': meteo_pgdl[12, :],
+#           'sum_Precipitation_millimeterPerDay': meteo_pgdl[15, :]
+#       })
+#       fm_driver['date'] = fm_driver['datetime'].dt.floor('D')
+#       sum_vars = [
+#           'sum_Longwave_Radiation_Downwelling_wattPerMeterSquared',
+#           'sum_Precipitation_millimeterPerDay']
+#       median_vars = [
+#           'AirTemp_C',
+#           'median_Ten_Meter_Elevation_Wind_Speed_meterPerSecond',
+#           'Shortwave_Wm2',
+#           'LightAttenutation_Kd',
+#           'Water_Secchi_m',
+#           'thermocline_depth_m']
+#       #nocollapse_vars = ['TOC_load_g_per_d']
+#       fm_driver_daily = (
+#           fm_driver
+#           .groupby("date")
+#           .agg({
+#               **{c: "sum" for c in sum_vars},
+#               **{c: "median" for c in median_vars}
+#           })
+#           .reset_index()
+#       )
+
+#       # fm_driver_daily = fm_driver_daily.reset_index()
+#       # fm_driver_daily['date'] = fm_driver_daily['datetime'].dt.date
+#       fm_driver_daily.to_csv(training_data_path + "fm_driver_daily.csv", index=False)
+    
+ 
   return(dat)
 
 ## functions for gas exchange

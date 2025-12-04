@@ -126,6 +126,10 @@ for lake_num in range(1, num_lakes + 1):
         outflow_depth=lake_config['outflow_depth'],
         mean_depth=sum(volume) / max(area),
         hypso_weight=hypso_weight,
+        altitude=lake_config['Elevation'],
+        #elev=altitude,
+        lat=lake_config['Latitude'],
+        long=lake_config['Longitude'],
 
         # MODEL PARAMS - initial conditions
         u=deepcopy(u_ini),  # already read

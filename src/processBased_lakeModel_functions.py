@@ -332,7 +332,7 @@ def provide_meteorology(meteofile, windfactor, lat, lon, elev):
                                                 relh = daily_meteo['Relative_Humidity_percent'],
                                                 swr = daily_meteo['Shortwave_Radiation_Downwelling_wattPerMeterSquared'],
                                                 lat =  lat, lon = lon,
-                                                elev = lon)
+                                                elev = elev)
 
     
     #daily_meteo['dt'] = (daily_meteo['date'] - daily_meteo['date'][0]).astype('timedelta64[s]') + 1
@@ -1905,7 +1905,8 @@ def atmospheric_module(
         Tair,
         Uw,
         at_factor = 1.0,
-        wind_factor = 1.0
+        wind_factor = 1.0, 
+        altitude=0
         ):
 
     start_time = datetime.datetime.now()
@@ -1921,10 +1922,10 @@ def atmospheric_module(
         k600 =  k_vachon(wind = Uw, area = area[0])
         piston_velocity = k600_to_kgas(k600 = k600, temperature = Tair, gas = "O2")/86400
     
-    o2_sat=do_sat_calc(u[0], 982.2, altitude = 258)
+    o2_sat=do_sat_calc(u[0], 982.2, altitude =altitude)
     atm_flux=piston_velocity*(o2_sat-o2[0]/volume[0])*area[0] #g/s
     o2[0] = (o2[0] +  # m/s g/m3 m2   m/s g/m3 m2 s -> ends up in g O2
-        ( piston_velocity * (do_sat_calc(u[0], 982.2, altitude = 258) - o2[0]/volume[0]) * area[0] ) * dt)
+        ( piston_velocity * (do_sat_calc(u[0], 982.2, altitude = altitude) - o2[0]/volume[0]) * area[0] ) * dt)
 
     end_time = datetime.datetime.now()
     #print("Atm_flux:",atm_flux )#+ str(end_time - start_time))
@@ -1974,7 +1975,7 @@ def boundary_module(
         sw_factor = 1.0,
         at_factor = 1.0,
         # turb_factor = 1.0,
-        # wind_factor = 1.0,
+        #wind_factor = 1.0,
         p_max = 1.0/86400,
         IP = 0.1,
         theta_npp = 1.08,
@@ -2092,7 +2093,7 @@ def prodcons_module_woDOCL(
         resp_pocr = -0.1,
         resp_pocl = -0.1,
         resp_poc = -0.1,
-        grazing_rate = -0.1,
+        #grazing_rate = -0.1,not used in function
         Hi = 0,
         kd_snow = 0.9,
         rho_fw = 1000,
@@ -2116,7 +2117,7 @@ def prodcons_module_woDOCL(
         piston_velocity = 1.0,
         sw_to_par = 2.114,
         growth_rate = 1.1,
-        grazing_ratio = 0.1,
+        #grazing_ratio = 0.1,not used in function
         alpha_gpp = 0.1/3600,
         beta_gpp = 4.2/3600,
         o2_to_chla = 41.5/3600): 
@@ -2172,8 +2173,8 @@ def prodcons_module_woDOCL(
     
     def fun(y, a, consumption, npp, growth, temp):
         #"Production and destruction term for a simple linear model."
-        o2n, docrn, docln, pocrn, pocln,  = y
-        resp_docr, resp_docl, resp_pocr, resp_pocl, = a
+        o2n, docrn, docln, pocrn, pocln  = y
+        resp_docr, resp_docl, resp_pocr, resp_pocl = a
         consumption = consumption.item()
         npp = npp.item() # npp.item()
         growth = growth #growth.item()
@@ -2842,6 +2843,7 @@ def boundary_module_oxygen(
         nx,
         dt,
         dx,
+        altitude,
         ice,
         kd_ice,
         Tair,
@@ -2933,7 +2935,7 @@ def boundary_module_oxygen(
     #Han and Bartels 1996
     d_sod = 10**(-4.410 + 773.8 /(u[nx-1] + 273.15) - (506.4/(u[nx-1] + 273.15))**2) / 10000
 
-    atm_flux = piston_velocity * (do_sat_calc(u[0], 982.2, altitude = 258) - o2[0]/volume[0]) * area[0]
+    atm_flux = piston_velocity * (do_sat_calc(u[0], 982.2, altitude = altitude) - o2[0]/volume[0]) * area[0] #adjust for altitude
     
     o2[0] = o2[0] +  (atm_flux * dt)# m/s g/m3 m2   m/s g/m3 m2 s
         
@@ -3338,6 +3340,9 @@ def run_wq_model(
   dt,
   dx,
   daily_meteo,
+  altitude,
+  lat,
+  long,
   secview,
   phosphorus_data,
   mean_depth,
@@ -3813,6 +3818,7 @@ def run_wq_model(
         dt = dt,
         dx = dx,
         ice = ice,
+        altitude=altitude,
         kd_ice = kd_ice,
         Tair = Tair(n),
         CC = CC(n),
@@ -3830,7 +3836,7 @@ def run_wq_model(
         at_factor = at_factor,
         sw_factor = sw_factor,
         #turb_factor = turb_factor,
-        #wind_factor = wind_factor,
+        wind_factor = wind_factor,
         p_max = p_max,
         IP = IP,
         theta_npp = theta_npp,

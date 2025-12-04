@@ -2184,12 +2184,12 @@ def prodcons_module_woDOCL(
         e = 0.95
         
         
-        p = [[carbon_oxygen * npp, 0, 0, 0, 0], # O2 1   [[0, 0, 0, 0, 0, algn * npp * 32/12, 0],
-         [0, 0, 0,  (pocrn * resp_pocr * consumption), 0], # DOC-R 2
-         [0, 0, 0, 0, (pocln * resp_pocl * consumption) + 0.2 * npp,], # DOC-L 3
+        p = [[carbon_oxygen * npp, 0, 0, 0, 0], # O2 1   [[0, 0, 0, 0, 0, algn * npp * 32/12, 0], o2 production from npp
+         [0, 0, 0,  (pocrn * resp_pocr * consumption), 0], # DOC-R 2 from POCr respiration
+         [0, 0, 0, 0, (pocln * resp_pocl * consumption) + 0.2 * npp,], # DOC-L 3 from POCl resp and small npp term
          [0, 0, 0, 0, 0], # POC-R 4
-         [0, 0, 0, 0, 0.8*npp ]] # POC-L 5]
-        d = [[0, carbon_oxygen* (docrn * resp_docr * consumption), carbon_oxygen *(docln * resp_docl * consumption), carbon_oxygen * (pocrn * resp_poc * consumption), carbon_oxygen * (pocln * resp_poc * consumption)],
+         [0, 0, 0, 0, 0.8*npp ]] # POC-L 5] from npp
+        d = [[0, carbon_oxygen* (docrn * resp_docr * consumption), carbon_oxygen *(docln * resp_docl * consumption), carbon_oxygen * (pocrn * resp_pocr * consumption), carbon_oxygen * (pocln * resp_pocl * consumption)],
          [0, (docrn * resp_docr * consumption), 0, 0, 0],
          [0, 0, (docln * resp_docl * consumption), 0, 0],
          [0, 0, 0, (pocrn * resp_pocr * consumption), 0],
@@ -2481,7 +2481,7 @@ def prodcons_module(
                #resp = [resp_docr, resp_docl, resp_poc], theta_r = theta_r, u = u[dep],
                #volume = volume[dep], k_half = k_half)
         mprk_res = solve_mprk(fun, y0=y0, dt=dt,
-                      resp=[resp_docr, resp_docl, resp_poc],
+                      resp=[resp_docr, resp_docl, resp_pocl, resp_pocr],
                       theta_r=theta_r, u=u[dep],
                       volume=volume[dep], k_half=k_half)
         o2[dep], docr[dep], docl[dep], pocr[dep], pocl[dep] = mprk_res[0]
@@ -3392,8 +3392,8 @@ def run_wq_model(
   resp_docr = -0.001,
   resp_docl = -0.01,
   resp_poc = -0.1,
-  resp_pocr=-0.1,
-  resp_pocl=-0.1,
+  resp_pocr= -0.1,
+  resp_pocl= -0.1,
   settling_rate = 0.3,
   sediment_rate = 0.01,
   piston_velocity = 1.0,
@@ -3886,6 +3886,7 @@ def run_wq_model(
         RH = RH(n),
         kd_light = kd_light,
         TP = TP(n),
+        IP=IP,
         nx = nx,
         dt = dt,
         dx = dx,
@@ -3893,7 +3894,9 @@ def run_wq_model(
         k_half = k_half,
         resp_docr = resp_docr,
         resp_docl = resp_docl,
-        resp_poc = resp_poc)
+        resp_poc = resp_poc,
+        resp_pocl=resp_pocl,
+        resp_pocr=resp_pocr)
     
     o2 = prodcons_res['o2']
     docr = prodcons_res['docr']
@@ -4179,7 +4182,7 @@ def run_wq_model(
       o2_pd = np.transpose(o2_pd)
       o2_diff = np.transpose(o2_diff)
       o2m = np.transpose(o2m)
-      o2_mgL=(o2/ volume[:, np.newaxis]).T
+     # o2_mgL=(o2m/ volume[ np.newaxis,:]).T
       # pd.DataFrame(o2_initial).to_csv(training_data_path+"/do_initial00.csv", index = False)
       # pd.DataFrame(o2_ax).to_csv(training_data_path+"/do_ax01.csv", index = False)
       # pd.DataFrame(o2_bc).to_csv(training_data_path+"/do_bc02.csv", index = False)
@@ -4296,7 +4299,7 @@ def run_wq_model(
       print("times length:", len(times))
 
       print("um shape:", np.asarray(um).shape)
-      print("o2 shape:", np.asarray(o2_mgL).shape)
+      #print("o2 shape:", np.asarray(o2_mgL).shape)
       print("doc_final shape:", np.asarray(doc_final).shape)
       print("poc_final shape:", np.asarray(poc_final).shape)
       print("TPm shape:", np.asarray(TPm).shape)

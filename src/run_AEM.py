@@ -249,9 +249,10 @@ print(End - Start)
 ####diagnistic graphs###
 light=meteo_all['Shortwave_Radiation_Downwelling_wattPerMeterSquared'].iloc[int(startTime):int(endTime)].reset_index(drop=True)
 wind=meteo_all['Ten_Meter_Elevation_Wind_Speed_meterPerSecond'].iloc[int(startTime):int(endTime)].reset_index(drop=True)
+precip=meteo_all['Precipitation_millimeterPerDay'].iloc[int(startTime):int(endTime)].reset_index(drop=True)
 #times2 = meteo_all[0]['datetime']
 
-fig,axis=plt.subplots(2,1,figsize=(12,6),sharex=True)
+fig,axis=plt.subplots(3,1,figsize=(12,6),sharex=True)
 axis[0].plot(times, light, color='goldenrod')
 axis[0].set_ylabel('Light (µmol/m²/s)')
 axis[0].set_title('Meteorology: Light and Wind')
@@ -259,6 +260,10 @@ axis[0].set_title('Meteorology: Light and Wind')
 axis[1].plot(times, wind, color='steelblue')
 axis[1].set_ylabel('Wind (m/s)')
 axis[1].set_xlabel('Time')
+
+axis[2].plot(times, precip, color='red')
+axis[2].set_ylabel('Precip(mm/d)')
+axis[2].set_xlabel('Time')
 
 plt.tight_layout()
 plt.show()
@@ -326,12 +331,12 @@ plt.ylabel("Energy Ratio", fontsize=15)
 plt.xlabel("Time", fontsize=15)   
 
 # heatmap of temps  
-N_pts = 15
+N_pts = 6
 n_years = float(n_days / 365)
 
 
 fig, ax = plt.subplots(figsize=(15,5))
-sns.heatmap(temp, cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2, vmin = 0, vmax = 30)
+sns.heatmap(temp, cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2)#, vmin = 0, vmax = 30)
 ax.contour(np.arange(.5, temp.shape[1]), np.arange(.5, temp.shape[0]), calc_dens(temp), levels=[999],
            colors=['black', 'gray'],
            linestyles = 'dotted')
@@ -570,8 +575,8 @@ plt.plot(times, temp[0,:] - temp[(nx-1),:], color = 'red')
 plt.show()
 
 #Diagnostic graphs at depth 
-depths = [1,34]   # Python indices for depth=1 and depth=12
-labels = ['Depth 1', 'Depth 17']
+depths = [1,44]   # Python indices for depth=1 and depth=12
+labels = ['Depth 1', 'Depth 22']
 
 doc_total = np.add(docl, docr)
 poc_total = np.add(pocl, pocr)

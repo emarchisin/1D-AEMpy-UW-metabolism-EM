@@ -2173,8 +2173,10 @@ def prodcons_module_woDOCL(
     
     def fun(y, a, consumption, npp, growth, temp):
         #"Production and destruction term for a simple linear model."
-        o2n, docrn, docln, pocrn, pocln  = y
-        resp_docr, resp_docl, resp_pocr, resp_pocl = a
+
+        o2n, docrn, docln, pocrn, pocln,  = y
+        resp_docr, resp_docl, resp_poc, = a
+
         consumption = consumption.item()
         npp = npp.item() # npp.item()
         growth = growth #growth.item()
@@ -2184,17 +2186,21 @@ def prodcons_module_woDOCL(
         q = 0.015
         e = 0.95
         
+        #breakpoint()
         
-        p = [[carbon_oxygen * npp, 0, 0, 0, 0], # O2 1   [[0, 0, 0, 0, 0, algn * npp * 32/12, 0], o2 production from npp
-         [0, 0, 0,  (pocrn * resp_pocr * consumption), 0], # DOC-R 2 from POCr respiration
-         [0, 0, 0, 0, (pocln * resp_pocl * consumption) + 0.2 * npp,], # DOC-L 3 from POCl resp and small npp term
+
+        #p = [[0, 0, 0, 0, 0], # O2 1   [[0, 0, 0, 0, 0, algn * npp * 32/12, 0],
+        p = [[carbon_oxygen * npp, 0, 0, 0, 0],
+         [0, 0, 0,  (pocrn * resp_poc * consumption), 0], # DOC-R 2
+         [0, 0, 0, 0, (pocln * resp_poc * consumption) + 0.2 * npp,], # DOC-L 3
          [0, 0, 0, 0, 0], # POC-R 4
-         [0, 0, 0, 0, 0.8*npp ]] # POC-L 5] from npp
-        d = [[0, carbon_oxygen* (docrn * resp_docr * consumption), carbon_oxygen *(docln * resp_docl * consumption), carbon_oxygen * (pocrn * resp_pocr * consumption), carbon_oxygen * (pocln * resp_pocl * consumption)],
+         [0, 0, 0, 0, 0.8*npp ]] # POC-L 5]
+       # d = [[0, 0, 0,0, 0],
+        d = [[0, carbon_oxygen* (docrn * resp_docr * consumption), carbon_oxygen *(docln * resp_docl * consumption), carbon_oxygen * (pocrn * resp_pocr * consumption), carbon_oxygen * (pocln * resp_poc * consumption)],
          [0, (docrn * resp_docr * consumption), 0, 0, 0],
          [0, 0, (docln * resp_docl * consumption), 0, 0],
-         [0, 0, 0, (pocrn * resp_pocr * consumption), 0],
-         [0, 0, 0, 0, (pocln * resp_pocl * consumption)]]
+         [0, 0, 0, (pocrn * resp_poc * consumption), 0],
+         [0, 0, 0, 0, (pocln * resp_poc * consumption)]]
         #breakpoint()H
         return p,d
 
@@ -2223,8 +2229,11 @@ def prodcons_module_woDOCL(
         # r_gpp = p / (kd_light * dx) * np.log((h + Jsw) / (h + H)) * (y[6]/volume / (y[6]/volume + m))
         # gpp = r_gpp 
         
+        #breakpoint()
+        
         # npp = r_gpp * theta_npp**(u - 20) 
         growth = 1
+        #IP_m = 1.6 * 10**(-6) # g O₂ m⁻³ s⁻¹
         npp = H * sw_to_par * IP_m * TP  * theta_npp**(u - 20) * volume 
         
         # print(npp)
@@ -2246,7 +2255,8 @@ def prodcons_module_woDOCL(
         #breakpoint()
         p0 = np.asarray(p0)
         d0 = np.asarray(d0)
-    
+        
+
         # Calculate diagonal:
         a[eye] = dt * d0.sum(1) / y[:, ci] + 1
     
@@ -2282,14 +2292,17 @@ def prodcons_module_woDOCL(
     
         # Solve system of equation:
         y = np.linalg.solve(a, r)
+        
+        #breakpoint()
         # breakpoint()
-        return [y, 86400 * resp[0] * consumption, 86400 * resp[1] * consumption, 86400 * resp[2] * consumption, 86400 * resp[3] * consumption,
+        return [y, 86400 * resp[0] * consumption, 86400 * resp[1] * consumption, 86400 * resp[2] * consumption, 86400 * resp[2] * consumption,
                 npp * 86400]
     
     docr_respiration = o2 * 0.0
     docl_respiration = o2 * 0.0
     pocr_respiration = o2 * 0.0
     pocl_respiration = o2 * 0.0
+    poc_respiration = o2 * 0.0
     npp_production = o2 * 0.0
     algae_growth = o2 * 0.0
     algae_grazing = o2 * 0.0
@@ -2302,12 +2315,12 @@ def prodcons_module_woDOCL(
             H_in = H[dep - 1]
         
         mprk_res = solve_mprk(fun, y0 =  [o2n[dep], docrn[dep], docln[dep], pocrn[dep], pocln[dep]], dt = dt, dx = dx,
-               resp = [resp_docr, resp_docl, resp_pocr, resp_pocl], theta_r = theta_r, u = u[dep],
+               resp = [resp_docr, resp_docl, resp_poc], theta_r = theta_r, u = u[dep],
                volume = volume[dep], k_half = k_half,
                H = H[dep], sw_to_par = sw_to_par, IP_m = IP_m, TP = TP, theta_npp = theta_npp,
                kd_light = kd_light, depth = depth[dep], Jsw = H_in)
         o2[dep], docr[dep], docl[dep], pocr[dep], pocl[dep] = mprk_res[0]
-        docr_respiration[dep], docl_respiration[dep], pocr_respiration[dep], pocl_respiration[dep], npp_production[dep]= [mprk_res[1], mprk_res[2], mprk_res[3], mprk_res[4], mprk_res[5]]
+        docr_respiration[dep], docl_respiration[dep], poc_respiration[dep],  npp_production[dep]= [mprk_res[1], mprk_res[2], mprk_res[3], mprk_res[4]]
 
 
     
@@ -2318,7 +2331,7 @@ def prodcons_module_woDOCL(
     # pocr = pocrn + dt * consumption * (pocrn * resp_poc)
     # pocl = pocln + dt * consumption * (pocln * resp_poc)
     
-    poc_respiration = pocl_respiration
+
     end_time = datetime.datetime.now()
     print("wq production and consumption: " + str(end_time - start_time))
     
@@ -2329,8 +2342,8 @@ def prodcons_module_woDOCL(
            'pocl':pocl,
            'docr_respiration': docr_respiration,
            'docl_respiration': docl_respiration,
-           'pocr_respiration': pocr_respiration,
-           'pocl_respiration': pocl_respiration,
+           'pocr_respiration': poc_respiration,
+           'pocl_respiration': poc_respiration,
            'npp_production': npp_production,
            'poc_respiration': poc_respiration}
 
@@ -2482,7 +2495,7 @@ def prodcons_module(
                #resp = [resp_docr, resp_docl, resp_poc], theta_r = theta_r, u = u[dep],
                #volume = volume[dep], k_half = k_half)
         mprk_res = solve_mprk(fun, y0=y0, dt=dt,
-                      resp=[resp_docr, resp_docl, resp_pocl, resp_pocr],
+                      resp=[resp_docr, resp_docl, resp_poc],
                       theta_r=theta_r, u=u[dep],
                       volume=volume[dep], k_half=k_half)
         o2[dep], docr[dep], docl[dep], pocr[dep], pocl[dep] = mprk_res[0]
@@ -2719,7 +2732,7 @@ def diffusion_module_dAdK(
         kzn_diff[len(depth)-1] =  2 * (kzn[len(depth)-1] - kzn[len(depth)-2]) 
         
         area_diff[0] =  2 * (area[1] - area[0]) 
-        area_diff[len(depth)-1] =  2 * (area_diff[len(depth)-1] - area_diff[len(depth)-2]) 
+        area_diff[-1] = 2*(area[-1] - area[-2])
         
         
         
@@ -2828,6 +2841,205 @@ def diffusion_module_dAdK(
            'docr': docr,
            'docl': docl}
     
+    return dat
+
+
+def diffusion_module_dAdK_v2(
+        un,
+        o2n,
+        docrn,
+        docln,
+        kzn,
+        Uw,
+        depth,
+        area,
+        volume,
+        dx,
+        dt,
+        nx,
+        g = 9.81,
+        ice = 0,
+        Cd = 0.013,
+        diffusion_method = 'hondzoStefan',
+        scheme = 'implicit'):
+
+    """
+    Flux-form Crank-Nicolson with natural Neumann BCs (zero-flux).
+    Fixed indexing bug in CN RHS to avoid out-of-bounds access.
+    """
+
+    start_time = datetime.datetime.now()
+
+    # ensure arrays
+    un = np.asarray(un, dtype=float)
+    kzn = np.asarray(kzn, dtype=float)
+    area = np.asarray(area, dtype=float)
+    depth = np.asarray(depth, dtype=float)
+    vol_arr = np.asarray(volume, dtype=float)
+
+    n = len(un)
+    if not (len(kzn) == n and len(area) == n and len(depth) == n and len(vol_arr) == n):
+        raise ValueError("Arrays un, kzn, area, depth, volume must all have same length")
+
+    # mass -> concentration for tracers using depth-specific layer volumes
+    o2c   = np.asarray(o2n,  dtype=float) / vol_arr
+    docrc = np.asarray(docrn, dtype=float) / vol_arr
+    doclc = np.asarray(docln, dtype=float) / vol_arr
+
+    K = kzn.copy()
+    dz = float(dx)
+
+    # face-centered properties for internal faces (i+1/2 for i=0..n-2)
+    A_face = 0.5 * (area[:-1] + area[1:])   # length n-1
+    K_face = 0.5 * (K[:-1] + K[1:])         # length n-1
+
+    # build L operator coefficients (flux-form)
+    sub = np.zeros(n, dtype=float)
+    diag = np.zeros(n, dtype=float)
+    sup = np.zeros(n, dtype=float)
+
+    for i in range(n):
+        if i < n-1:
+            A_r = A_face[i]; K_r = K_face[i]
+        else:
+            A_r = 0.0; K_r = 0.0
+
+        if i > 0:
+            A_l = A_face[i-1]; K_l = K_face[i-1]
+        else:
+            A_l = 0.0; K_l = 0.0
+
+        denom = area[i] * dz * dz
+        # if denom is zero (bad area), raise explicit error to avoid silent blow-ups
+        if denom == 0.0:
+            raise ValueError(f"area[{i}] is zero leading to division by zero in discretization")
+
+        sub[i]  = (A_l * K_l) / denom
+        sup[i]  = (A_r * K_r) / denom
+        diag[i] = - (A_r * K_r + A_l * K_l) / denom
+
+    # assemble banded matrix for (I - 0.5*dt*L)
+    ab = np.zeros((3, n), dtype=float)
+    ab[0,1:]   = -0.5 * dt * sup[:-1]   # upper diag
+    ab[1,:]    = 1.0 - 0.5 * dt * diag  # main diag
+    ab[2,:-1]  = -0.5 * dt * sub[1:]    # lower diag
+
+    # small safety zeros
+    ab[0,0] = 0.0
+    ab[2,-1] = 0.0
+
+    # Corrected RHS: compute (I + 0.5*dt*L) C with explicit boundary handling
+    def apply_CN_rhs(C):
+        C = np.asarray(C, dtype=float)
+        out = np.empty_like(C)
+        # top (i == 0): left face absent -> left flux = 0
+        i = 0
+        if n > 1:
+            A_r = A_face[0]; K_r = K_face[0]
+            A_l = 0.0; K_l = 0.0
+            denom = area[0] * dz * dz
+            LC_i = (A_r * K_r * (C[1] - C[0]) - 0.0) / denom
+        else:
+            LC_i = 0.0
+        out[0] = C[0] + 0.5 * dt * LC_i
+
+        # interior points
+        for i in range(1, n-1):
+            A_r = A_face[i]; K_r = K_face[i]
+            A_l = A_face[i-1]; K_l = K_face[i-1]
+            denom = area[i] * dz * dz
+            LC_i = (A_r * K_r * (C[i+1] - C[i]) - A_l * K_l * (C[i] - C[i-1])) / denom
+            out[i] = C[i] + 0.5 * dt * LC_i
+
+        # bottom (i == n-1): right face absent -> right flux = 0
+        if n > 1:
+            i = n-1
+            A_r = 0.0; K_r = 0.0
+            A_l = A_face[-1]; K_l = K_face[-1]
+            denom = area[i] * dz * dz
+            LC_i = (0.0 - A_l * K_l * (C[i] - C[i-1])) / denom
+            out[i] = C[i] + 0.5 * dt * LC_i
+        else:
+            # single cell domain
+            out[0] = C[0]
+        return out
+
+    # Solve temperature
+    if scheme == 'implicit':
+        rhs_temp = apply_CN_rhs(un)
+        u_new = solve_banded((1,1), ab, rhs_temp)
+    else:
+        # explicit fallback
+        u_new = un.copy()
+        for i in range(n):
+            if i == 0:
+                if n > 1:
+                    A_r = A_face[0]; K_r = K_face[0]; denom = area[0]*dz*dz
+                    LC = (A_r*K_r*(un[1]-un[0]))/denom
+                else:
+                    LC = 0.0
+            elif i == n-1:
+                A_l = A_face[-1]; K_l = K_face[-1]; denom = area[i]*dz*dz
+                LC = (- A_l*K_l*(un[i]-un[i-1]))/denom
+            else:
+                A_r = A_face[i]; K_r = K_face[i]; A_l = A_face[i-1]; K_l = K_face[i-1]
+                denom = area[i]*dz*dz
+                LC = (A_r*K_r*(un[i+1]-un[i]) - A_l*K_l*(un[i]-un[i-1]))/denom
+            u_new[i] = un[i] + dt * LC
+
+    # Tracers (O2, DOCr, DOCl)
+    if scheme == 'implicit':
+        rhs_o2 = apply_CN_rhs(o2c)
+        o2c_new = solve_banded((1,1), ab, rhs_o2)
+
+        rhs_docr = apply_CN_rhs(docrc)
+        docr_c_new = solve_banded((1,1), ab, rhs_docr)
+
+        rhs_docl = apply_CN_rhs(doclc)
+        docl_c_new = solve_banded((1,1), ab, rhs_docl)
+    else:
+        o2c_new = o2c.copy(); docr_c_new = docrc.copy(); docl_c_new = doclc.copy()
+        for i in range(n):
+            if i == 0:
+                if n > 1:
+                    denom = area[0]*dz*dz
+                    LC_o2 = (A_face[0]*K_face[0]*(o2c[1]-o2c[0]))/denom
+                    LC_docr = (A_face[0]*K_face[0]*(docrc[1]-docrc[0]))/denom
+                    LC_docl = (A_face[0]*K_face[0]*(doclc[1]-doclc[0]))/denom
+                else:
+                    LC_o2 = LC_docr = LC_docl = 0.0
+            elif i == n-1:
+                denom = area[i]*dz*dz
+                LC_o2 = (-A_face[-1]*K_face[-1]*(o2c[i]-o2c[i-1]))/denom
+                LC_docr = (-A_face[-1]*K_face[-1]*(docrc[i]-docrc[i-1]))/denom
+                LC_docl = (-A_face[-1]*K_face[-1]*(doclc[i]-doclc[i-1]))/denom
+            else:
+                denom = area[i]*dz*dz
+                LC_o2 = (A_face[i]*K_face[i]*(o2c[i+1]-o2c[i]) - A_face[i-1]*K_face[i-1]*(o2c[i]-o2c[i-1]))/denom
+                LC_docr = (A_face[i]*K_face[i]*(docrc[i+1]-docrc[i]) - A_face[i-1]*K_face[i-1]*(docrc[i]-docrc[i-1]))/denom
+                LC_docl = (A_face[i]*K_face[i]*(doclc[i+1]-doclc[i]) - A_face[i-1]*K_face[i-1]*(doclc[i]-doclc[i-1]))/denom
+
+            o2c_new[i] = o2c[i] + dt * LC_o2
+            docr_c_new[i] = docrc[i] + dt * LC_docr
+            docl_c_new[i] = doclc[i] + dt * LC_docl
+
+    # back to mass with depth-specific layer volumes
+    o2_new = o2c_new * vol_arr
+    docr_new = docr_c_new * vol_arr
+    docl_new = docl_c_new * vol_arr
+
+    end_time = datetime.datetime.now()
+
+    dat = {
+        'temp': u_new,
+        'diffusivity': K,
+        'alpha': float(np.max(0.5 * dt * (np.abs(sup) + np.abs(sub)))),
+        'o2': o2_new,
+        'docr': docr_new,
+        'docl': docl_new
+    }
+
+    print("diffusion (fixed CN RHS indexing):", end_time - start_time)
     return dat
 
 def boundary_module_oxygen(
@@ -3076,14 +3288,16 @@ def advection_diffusion_module(
         mn[0] = pocln[0]
         mn[-1] = pocln[-1]
         
+        pocln_former = pocln
+        
         for k in range(1,j-1):
             mn[k] =  -az[k] * pocln[k-1] + (-bz[k]) * pocln[k] - cz[k] * pocln[k+1]
         pocln = np.linalg.solve(y, pocln)* volume
         
         #breakpoint()
         if (np.min(pocln) < 0):
-            print('fuck!')
-            #breakpoint()
+            print('POC below 0, this is bad!!')
+            breakpoint()
         
         
         #breakpoint()
@@ -3416,7 +3630,8 @@ def run_wq_model(
   training_data_path = None,
   timelabels = None,
   atm_flux=None, 
-  lake_num = 1
+  lake_num = 1,
+  debugging =0
   ):
     
   ## linearization of driver data, so model can have dynamic step
@@ -3573,7 +3788,10 @@ def run_wq_model(
     #pocr = [x+perdepth_pocr for x in pocr]
     #pocl = [x+perdepth_pocl for x in pocl]
 
+
     ## (1) HEATING
+    if (any(u > 50)):
+       breakpoint()
   
     
     heating_res = heating_module(
@@ -3603,6 +3821,21 @@ def run_wq_model(
         turb_factor = turb_factor)
     
     u = heating_res['temp']
+    
+    if debugging ==1:
+        print(n)
+        print(u)
+        print(o2/volume)
+        print(docr/volume)
+        print(docl/volume)
+        print(pocr/volume)
+        print(pocl/volume)
+        arrays_states = [u, o2, docr, docl, pocr, pocl]
+        if any(v < 0 for arr in arrays_states for v in arr):
+            print("A negative value exists")
+         #   breakpoint()
+    if (any(u > 50)):
+       breakpoint()
    
     IceSnowAttCoeff = heating_res['IceSnowAttCoeff']
     
@@ -3646,20 +3879,31 @@ def run_wq_model(
     
     plt.plot(u, color = 'blue')
     
+    if debugging ==1:
+        print(n)
+        print(u)
+        print(o2/volume)
+        print(docr/volume)
+        print(docl/volume)
+        print(pocr/volume)
+        print(pocl/volume)
+        arrays_states = [u, o2, docr, docl, pocr, pocl]
+        if any(v < 0 for arr in arrays_states for v in arr):
+            print("A negative value exists")
+         #   breakpoint()
+    
     um_ice[:, idn] = u
     icem[:, idn] = ice
     
     TPm[:, idn] = TP(n)
-    
-    
-
     
     dens_u_n2 = calc_dens(u)
     if 'kz' in locals():
         1+1
     else: 
         kz = u * 0.0
-    
+    if (any(u > 50)):
+       breakpoint()    
 
     if diffusion_method == 'hendersonSellers':
         kz = eddy_diffusivity_hendersonSellers(dens_u_n2, depth, g, np.mean(dens_u_n2) , ice, area, Uw(n),  43.100948, u, kz, Cd, km, weight_kz, k0) / 1
@@ -3669,13 +3913,12 @@ def run_wq_model(
         kz = eddy_diffusivity(dens_u_n2, depth, g, np.mean(dens_u_n2) , ice, area, u, kz) / 86400
     elif diffusion_method == 'pacanowskiPhilander':
         kz = eddy_diffusivity_pacanowskiPhilander(dens_u_n2, depth, g, np.mean(dens_u_n2) , ice, area, Uw(n),  43.100948, u, kz, Cd, km, weight_kz, k0) / 1
- 
-    
+
     ## (2) DIFFUSION
     #breakpoint()
-    
+
     # --> RL change from diffusion_module to diffusion_module_dAdK
-    diffusion_res = diffusion_module_dAdK(
+    diffusion_res = diffusion_module_dAdK_v2(
         un = u,
         o2n = o2,
         docrn = docr,
@@ -3707,7 +3950,24 @@ def run_wq_model(
     o2_diff[:, idn] = o2
     docr_diff[:, idn] = docr
     docl_diff[:, idn] = docl
+    if (any(u > 50)):
+       breakpoint()
+    if debugging ==1:
+        print(n)
+        #print(u)
+        print(o2/volume)
+        print(docr/volume)
+        print(docl/volume)
+        print(pocr/volume)
+        print(pocl/volume)
+        arrays_states = [u, o2, docr, docl, pocr, pocl]
+        if any(v < 0 for arr in arrays_states for v in arr):
+            print("A negative value exists")
+            breakpoint()
     
+    if (np.min(pocl) < 0):
+        print('POC below 0, this is bad!!')
+        breakpoint()
     #breakpoint()
     # --> RL change
     advection_res = advection_diffusion_module(
@@ -3730,11 +3990,27 @@ def run_wq_model(
     pocr = advection_res['pocr']
     pocl = advection_res['pocl']
 
-    
+    if (any(u > 50)):
+       breakpoint()
     
     pocr_diff[:, idn] = pocr
     pocl_diff[:, idn] = pocl
     
+    if debugging ==1:
+        print(n)
+        print(u)
+        print(o2/volume)
+        print(docr/volume)
+        print(docl/volume)
+        print(pocr/volume)
+        print(pocl/volume)
+        arrays_states = [u, o2, docr, docl, pocr, pocl]
+        if any(v < 0 for arr in arrays_states for v in arr):
+            print("A negative value exists")
+    #        breakpoint()
+    if (np.min(pocl) < 0):
+        print('POC below 0, this is bad!!')
+        breakpoint()
     # --> RL change
     mixing_res = mixing_module_minlake_RL(
         un = u,
@@ -3757,6 +4033,8 @@ def run_wq_model(
     
     #breakpoint()
     #breakpoint()
+    if (any(u > 50)):
+       breakpoint()
     
     u = mixing_res['temp'] 
     thermo_dep = mixing_res['thermo_dep']
@@ -3770,7 +4048,9 @@ def run_wq_model(
     um_mix[:, idn] = u
     thermo_depm[0,idn] = thermo_dep
     energy_ratiom[0, idn] = energy_ratio
-    
+    if (np.min(pocl) < 0):
+        print('POC below 0, this is bad!!')
+        breakpoint()
     ## (4) CONVECTION
     convection_res = convection_module(
         un = u,
@@ -3779,8 +4059,22 @@ def run_wq_model(
     
     u = convection_res['temp']
     
-    plt.plot(u, color = 'black')
+    if debugging ==1:
+        print(n)
+        print(u)
+        print(o2/volume)
+        print(docr/volume)
+        print(docl/volume)
+        print(pocr/volume)
+        print(pocl/volume)
+        arrays_states = [u, o2, docr, docl, pocr, pocl]
+        if any(v < 0 for arr in arrays_states for v in arr):
+            print("A negative value exists")
+       #     breakpoint()
     
+    plt.plot(u, color = 'black')
+    if (any(u > 50)):
+       breakpoint()
     ## (WQ0) ATMOSPHERIC EXCHANGE
     # <-- RL change
     # atmospheric_res = atmospheric_module(
@@ -3864,9 +4158,30 @@ def run_wq_model(
     docl_bc[:, idn] = docl
     pocr_bc[:, idn] = pocr
     pocl_bc[:, idn] = pocl
-
+    if (np.min(pocl) < 0):
+        print('POC below 0, this is bad!!')
+        breakpoint()
+    if debugging ==1:
+        print(n)
+        print(u)
+        print(o2/volume)
+        print(docr/volume)
+        print(docl/volume)
+        print(pocr/volume)
+        print(pocl/volume)
+        arrays_states = [u, o2, docr, docl, pocr, pocl]
+        if any(v < 0 for arr in arrays_states for v in arr):
+            print("A negative value exists")
+         #   breakpoint()
+        if (any(o2/volume) >100):
+            print('huh')
+            breakpoint()
+    if (any(u > 50)):
+       breakpoint()
     #breakpoint()
-    
+    #print(o2/volume)
+    #print(docr/volume)
+    #breakpoint()
     
     ## (WQ2) PRODUCTION CONSUMPTION
     # --> RL change to prodcons_module_woDOCL() from prodcons_module()
@@ -3892,10 +4207,10 @@ def run_wq_model(
         RH = RH(n),
         kd_light = kd_light,
         TP = TP(n),
-        IP=IP,
         nx = nx,
         dt = dt,
         dx = dx,
+        IP = IP,
         theta_r = theta_r,
         k_half = k_half,
         resp_docr = resp_docr,
@@ -3920,11 +4235,31 @@ def run_wq_model(
     pocr_pd[:, idn] = pocr
     pocl_pd[:, idn] = pocl
     nppm[:, idn] = npp
-    
+    if (np.min(pocl) < 0):
+        print('POC below 0, this is bad!!')
+        breakpoint()
     docr_respirationm[:, idn] = docr_respiration
     docl_respirationm[:, idn] = docl_respiration
     poc_respirationm[:, idn] = poc_respiration
     
+    if debugging ==1:
+        print(n)
+        print(u)
+        print(o2/volume)
+        print(docr/volume)
+        print(docl/volume)
+        print(pocr/volume)
+        print(pocl/volume)
+        arrays_states = [u, o2, docr, docl, pocr, pocl]
+        if any(v < 0 for arr in arrays_states for v in arr):
+            print("A negative value exists")
+         #   breakpoint()
+    if (any(u > 50)):
+       breakpoint()
+    
+    #print(o2/volume)
+    #print(docr/volume)
+    #breakpoint()
     #breakpoint()
     # --> RL change, not needed
     # dens_u_n2 = calc_dens(u)

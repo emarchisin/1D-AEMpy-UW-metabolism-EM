@@ -3159,6 +3159,11 @@ def mixing_module_minlake_RL(
     u = un
     start_time = datetime.datetime.now()
     
+    if np.max(un) > 26:
+        print("it's too hot in here!! (mixing module), iteration:")
+        print("max temp:", np.max(u))
+        breakpoint()
+            
     
     if W_str is None:
         W_str = 1.0 - exp(-0.3 * max(area/10**6))
@@ -3650,6 +3655,7 @@ def run_wq_model(
         Pa= Pa(n),
         RH = RH(n),
         PP = PP(n),
+        eps=eps, #change
         IceSnowAttCoeff = IceSnowAttCoeff,
         ice = ice,
         dt_iceon_avg = dt_iceon_avg,
@@ -3762,6 +3768,8 @@ def run_wq_model(
     pocl_diff[:, idn] = pocl
     
     # --> RL change
+    if np.max(u) > 26:
+        print("WARNING: high temp before mixing: ", np.max(u))
     mixing_res = mixing_module_minlake_RL(
         un = u,
         o2n = o2,

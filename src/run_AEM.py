@@ -254,9 +254,10 @@ print(End - Start)
 light=meteo_all['Shortwave_Radiation_Downwelling_wattPerMeterSquared'].iloc[int(startTime):int(endTime)].reset_index(drop=True)
 wind=meteo_all['Ten_Meter_Elevation_Wind_Speed_meterPerSecond'].iloc[int(startTime):int(endTime)].reset_index(drop=True)
 precip=meteo_all['Precipitation_millimeterPerDay'].iloc[int(startTime):int(endTime)].reset_index(drop=True)
+air_temp=meteo_all['Air_Temperature_celsius'].iloc[int(startTime):int(endTime)].reset_index(drop=True)
 #times2 = meteo_all[0]['datetime']
 
-fig,axis=plt.subplots(3,1,figsize=(12,6),sharex=True)
+fig,axis=plt.subplots(4,1,figsize=(12,6),sharex=True)
 axis[0].plot(times, light, color='goldenrod')
 axis[0].set_ylabel('Light (µmol/m²/s)')
 axis[0].set_title('Meteorology: Light and Wind')
@@ -268,6 +269,10 @@ axis[1].set_xlabel('Time')
 axis[2].plot(times, precip, color='red')
 axis[2].set_ylabel('Precip(mm/d)')
 axis[2].set_xlabel('Time')
+
+axis[3].plot(times, air_temp, color='red')
+axis[3].set_ylabel('Air Temp (degC)')
+axis[3].set_xlabel('Time')
 
 plt.tight_layout()
 plt.show()
@@ -421,7 +426,7 @@ plt.show()
 
 
 fig, ax = plt.subplots(figsize=(15,5))
-sns.heatmap(np.transpose(np.transpose(pocr)/volume), cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2, vmin = 0, vmax = 15)
+sns.heatmap(np.transpose(np.transpose(pocr)/volume), cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2) #, vmin = 0, vmax = 15
 ax.contour(np.arange(.5, temp.shape[1]), np.arange(.5, temp.shape[0]), calc_dens(temp), levels=[999],
            colors=['black', 'gray'],
            linestyles = 'dotted')
@@ -440,7 +445,7 @@ ax.set_yticklabels(depth_label, rotation=0)
 plt.show()
 
 fig, ax = plt.subplots(figsize=(15,5))
-sns.heatmap(np.transpose(np.transpose(pocl)/volume), cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2, vmin = 0, vmax = 15)
+sns.heatmap(np.transpose(np.transpose(pocl)/volume), cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2) #, vmin = 0, vmax = 15
 ax.contour(np.arange(.5, temp.shape[1]), np.arange(.5, temp.shape[0]), calc_dens(temp), levels=[999],
            colors=['black', 'gray'],
            linestyles = 'dotted')
@@ -460,7 +465,7 @@ plt.show()
 
 
 fig, ax = plt.subplots(figsize=(15,5))
-sns.heatmap(np.transpose(np.transpose(npp)/volume) * 86400, cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2, vmin = 0, vmax = .3)
+sns.heatmap(np.transpose(np.transpose(npp)/volume) * 86400, cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2) #, vmin = 0, vmax = .3
 ax.contour(np.arange(.5, temp.shape[1]), np.arange(.5, temp.shape[0]), calc_dens(temp), levels=[999],
            colors=['black', 'gray'],
            linestyles = 'dotted')
@@ -568,7 +573,7 @@ plt.show()
 
 do_sat = o2[0,:] * 0.0
 for r in range(0, len(temp[0,:])):
-    do_sat[r] = do_sat_calc(temp[2,r], 982.2, altitude = 258) 
+    do_sat[r] = do_sat_calc(temp[2,r], 982.2, altitude) 
 
 plt.plot(times, o2[0,:]/volume[0], color = 'blue')
 plt.plot(times, do_sat, color = 'red')

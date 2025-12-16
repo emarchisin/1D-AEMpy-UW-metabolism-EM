@@ -46,7 +46,7 @@ for lake_num in range(1, num_lakes + 1):
     dt = float(run_config["dt"])# 24 hours times 60 min/hour times 60 seconds/min to convert s to day
     dx = float(run_config["dx"]) # spatial step
     ## area and depth values of our lake 
-    area, depth, volume, hypso_weight = get_hypsography(hypsofile = '../input/ME/bathymetry.csv',
+    area, depth, volume, hypso_weight = get_hypsography(hypsofile = '../input/ME/bathymetry.csv',#'../input/Peter Lake/bathymetry.csv',
                             dx = dx, nx = nx, outflow_depth=float(lake_config["outflow_depth"]))
     #area, depth, volume = get_hypsography(hypsofile = '../input/bathymetry.csv',
       #                      dx = dx, nx = nx)
@@ -134,8 +134,8 @@ for lake_num in range(1, num_lakes + 1):
         # MODEL PARAMS - initial conditions
         u=deepcopy(u_ini),  # already read
         o2=deepcopy(wq_ini[0]),  # already read
-        docr=deepcopy(wq_ini[1]) * 1.3,
-        docl=1.0 * volume,
+        docr=deepcopy(wq_ini[1])*.75, #* 1.3,
+        docl=deepcopy(wq_ini[1])*.25,#1.0 * volume,
         pocr=0.5 * volume,
         pocl=0.5 * volume,
 
@@ -293,11 +293,17 @@ def compute_delta_hourly(var):
 
 temp_1m=temp[depth1,:]
 do_1m=o2[depth1,:]/volume[depth1]
-gpp_1m=(npp[2,:] -1/86400 *(docl[2,:] * docl_respiration[2,:]+ docr[2,:] * docr_respiration[2,:] + pocl[2,:] * poc_respiration[2,:] + pocr[2,:] * poc_respiration[2,:]))*(1/volume[depth1])*3600#/volume[depth1]
-r_1m=1/86400*(docl[2,:] * docl_respiration[2,:]+ docr[2,:] * docr_respiration[2,:] + pocl[2,:] * poc_respiration[2,:] + pocr[2,:] * poc_respiration[2,:])/volume[2]*3600#3600 to get from g/m3/s to g/m3/h
-atm_1m=atm_flux_output[0,:]*3600/volume[0] #g o2/m3/h
-delta_gpp1m=compute_delta_hourly(gpp_1m)
-delta_r1m=compute_delta_hourly(r_1m)
+#gpp_1m=(npp[2,:] -1/86400 *(docl[2,:] * docl_respiration[2,:]+ docr[2,:] * docr_respiration[2,:] + pocl[2,:] * poc_respiration[2,:] + pocr[2,:] * poc_respiration[2,:]))*(1/volume[depth1])*3600#/volume[depth1]
+#r_1m=1/86400*(docl[2,:] * docl_respiration[2,:]+ docr[2,:] * docr_respiration[2,:] + pocl[2,:] * poc_respiration[2,:] + pocr[2,:] * poc_respiration[2,:])/volume[2]*3600#3600 to get from g/m3/s to g/m3/h
+r_1m_hour=((docl[depth1, :] * docl_respiration[depth1, :]) +
+    (docr[depth1, :] * docr_respiration[depth1, :]) +
+    (pocl[depth1, :] * poc_respiration[depth1, :]) +
+    (pocr[depth1, :] * poc_respiration[depth1, :])) / volume[depth1]/24 #g/m3/h
+npp_1m_hour=npp[depth1,:]/volume[depth1]/24 #g/m3/h
+gpp_1m_hour=npp_1m_hour+r_1m_hour #g/m3/h
+atm_1m=atm_flux_output[0,:]/volume[0]/24 #g o2/m3/h
+delta_gpp1m=compute_delta_hourly(gpp_1m_hour)
+delta_r1m=compute_delta_hourly(r_1m_hour)
 delta_atm1m=compute_delta_hourly(atm_1m)  
  
 fig, ax = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
@@ -311,12 +317,12 @@ plt.tight_layout()
 plt.show()
 
 fig, ax = plt.subplots(5, 1, figsize=(12, 10), sharex=True)
-#ax[0].plot(times, gpp_1m*24, label='GPP', color='green')
+ax[0].plot(times, gpp_1m_hour*24, label='GPP', color='green')
 #ax[0].set_ylabel('GPP (g/m3/d)')
-ax[0].plot(times, npp[2,:]*24*3600/volume[2], label='NPP', color='black')
+#ax[0].plot(times, npp[2,:]*24*3600/volume[2], label='NPP', color='black')
 ax[0].set_ylabel('GPP (g/m3/d)')
 ax[0].legend()
-ax[1].plot(times, r_1m*24, label='Respiration (R)', color='red')
+ax[1].plot(times, r_1m_hour*24, label='Respiration (R)', color='red')
 ax[1].set_ylabel('R (g/m3/d)')
 ax[1].legend()
 ax[2].plot(times, atm_1m*24, label='Atmospheric Exchange', color='purple')
@@ -345,7 +351,7 @@ n_years = float(n_days / 365)
 
 
 fig, ax = plt.subplots(figsize=(15,5))
-sns.heatmap(temp, cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2)#, vmin = 0, vmax = 30)
+sns.heatmap(temp, cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2, vmin = 0, vmax = 30)
 ax.contour(np.arange(.5, temp.shape[1]), np.arange(.5, temp.shape[0]), calc_dens(temp), levels=[999],
            colors=['black', 'gray'],
            linestyles = 'dotted')
@@ -367,7 +373,7 @@ plt.show()
 
 
 fig, ax = plt.subplots(figsize=(15,5))
-sns.heatmap(np.transpose(np.transpose(o2)/volume), cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2)#, vmin = 0, vmax = 20)
+sns.heatmap(np.transpose(np.transpose(o2)/volume), cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2, vmin = 0, vmax = 20)
 ax.contour(np.arange(.5, temp.shape[1]), np.arange(.5, temp.shape[0]), calc_dens(temp), levels=[999],
            colors=['black', 'gray'],
            linestyles = 'dotted')
@@ -384,6 +390,7 @@ yticks_ix = np.array(ax.get_yticks()).astype(int)
 depth_label = yticks_ix / 2
 ax.set_yticklabels(depth_label, rotation=0)
 plt.show()
+
 
 fig, ax = plt.subplots(figsize=(15,5))
 sns.heatmap(np.transpose(np.transpose(docl)/volume), cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2, vmin = 0, vmax = 7)
@@ -426,7 +433,7 @@ plt.show()
 
 
 fig, ax = plt.subplots(figsize=(15,5))
-sns.heatmap(np.transpose(np.transpose(pocr)/volume), cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2) #, vmin = 0, vmax = 15
+sns.heatmap(np.transpose(np.transpose(pocr)/volume), cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2, vmin = 0, vmax = 5) #
 ax.contour(np.arange(.5, temp.shape[1]), np.arange(.5, temp.shape[0]), calc_dens(temp), levels=[999],
            colors=['black', 'gray'],
            linestyles = 'dotted')
@@ -445,7 +452,7 @@ ax.set_yticklabels(depth_label, rotation=0)
 plt.show()
 
 fig, ax = plt.subplots(figsize=(15,5))
-sns.heatmap(np.transpose(np.transpose(pocl)/volume), cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2) #, vmin = 0, vmax = 15
+sns.heatmap(np.transpose(np.transpose(pocl)/volume), cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2, vmin = 0, vmax = 5) #
 ax.contour(np.arange(.5, temp.shape[1]), np.arange(.5, temp.shape[0]), calc_dens(temp), levels=[999],
            colors=['black', 'gray'],
            linestyles = 'dotted')
@@ -465,7 +472,7 @@ plt.show()
 
 
 fig, ax = plt.subplots(figsize=(15,5))
-sns.heatmap(np.transpose(np.transpose(npp)/volume) * 86400, cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2) #, vmin = 0, vmax = .3
+sns.heatmap(np.transpose(np.transpose(npp)/volume)* 86400, cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2, vmin = 0, vmax = 0.3)
 ax.contour(np.arange(.5, temp.shape[1]), np.arange(.5, temp.shape[0]), calc_dens(temp), levels=[999],
            colors=['black', 'gray'],
            linestyles = 'dotted')
@@ -573,7 +580,7 @@ plt.show()
 
 do_sat = o2[0,:] * 0.0
 for r in range(0, len(temp[0,:])):
-    do_sat[r] = do_sat_calc(temp[2,r], 982.2, altitude) 
+    do_sat[r] = do_sat_calc(temp[2,r], 982.2, 258) 
 
 plt.plot(times, o2[0,:]/volume[0], color = 'blue')
 plt.plot(times, do_sat, color = 'red')
@@ -584,7 +591,7 @@ plt.plot(times, temp[0,:] - temp[(nx-1),:], color = 'red')
 plt.show()
 
 #Diagnostic graphs at depth 
-depths = [1,44]   # Python indices for depth=1 and depth=12
+depths = [1,44]   # Python indices for depth=1 and depth=22
 labels = ['Depth 1', 'Depth 22']
 
 doc_total = np.add(docl, docr)
@@ -607,7 +614,7 @@ for i, d in enumerate(depths):
     plt.plot(times, doc_total[d, :]/volume [d], label=f'DOC at {labels[i]}', linestyle='-', color=('green' if d == 1 else 'lightgreen'))
 plt.ylabel("DOC (mg/L)")
 plt.xlabel("Time")
-#plt.ylim(0, 8)
+plt.ylim(0, 6)
 plt.legend()
 plt.title("Dissolved Organic Carbon Total (DOC-tot)")
 plt.show()
@@ -619,7 +626,7 @@ for i, d in enumerate(depths):
     plt.plot(times, docl[d, :]/volume [d], label=f'DOC at {labels[i]}', linestyle='-', color=('green' if d == 1 else 'lightgreen'))
 plt.ylabel("DOC (mg/L)")
 plt.xlabel("Time")
-#plt.ylim(0, 8)
+plt.ylim(0, 6)
 plt.legend()
 plt.title("Dissolved Organic Carbon Laible (DOCl)")
 plt.show()
@@ -631,7 +638,7 @@ for i, d in enumerate(depths):
     plt.plot(times, docr[d, :]/volume [d], label=f'DOC at {labels[i]}', linestyle='-', color=('green' if d == 1 else 'lightgreen'))
 plt.ylabel("DOC (mg/L)")
 plt.xlabel("Time")
-#plt.ylim(0, 8)
+plt.ylim(0, 6)
 plt.legend()
 plt.title("Dissolved Organic Carbon Recalcitrant (DOCr)")
 plt.show()
@@ -647,7 +654,56 @@ plt.legend()
 plt.title("Particulate Organic Carbon (POC)")
 plt.show()
 
+#Check against observed data
+df_obs=pd.read_csv('/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/input/mendota_driver_data_v3.csv',  parse_dates=['datetime'])
+df_obs['datetime'] = pd.to_datetime(df_obs['datetime'], errors='coerce')
+df_obs = df_obs[(df_obs['datetime'] >= startingDate) & (df_obs['datetime'] <= endingDate)]
+df_obs_surf_do = df_obs[(df_obs['variable'] == 'do') & (df_obs['depth'] == 1)]
+df_obs_surf_do['datetime'] = pd.to_datetime(df_obs_surf_do['datetime'], format = 'mixed')
+df_obs_bot_do= df_obs[(df_obs['variable'] == 'do') & (df_obs['depth'] == 22)]
 
+plt.figure(figsize=(10, 5))
+plt.plot(times, o2[2,:]/volume[2], color= 'blue', label='1m Modeled DO', linestyle= 'solid')
+plt.plot(times, o2[44,:]/volume[44], color= 'blue', label='22m Modeled DO', linestyle= 'dashed')
+plt.plot(df_obs_surf_do["datetime"], df_obs_surf_do["observation"], color= 'red', label='1m Observed DO', linestyle= 'solid',marker='o', zorder=5)
+plt.plot(df_obs_bot_do["datetime"], df_obs_bot_do["observation"], color= 'red', label='22m Observed DO', linestyle= 'dashed', marker='o', zorder=5)
+plt.ylabel("DO (mg/L)", fontsize=15)
+plt.xlabel("Time", fontsize=15) 
+plt.legend(loc='best')
+plt.show()
+
+df_obs_surf_doc = df_obs[(df_obs['variable'] == 'doc') & (df_obs['depth'] == 0)]
+df_obs_bot_doc= df_obs[(df_obs['variable'] == 'doc') & (df_obs['depth'] == 20)]
+
+plt.figure(figsize=(10, 5))
+plt.plot(times, doc_total[0,:]/volume[0], color='blue', label='0m Modeled DOC', linestyle='solid')
+plt.plot(times, doc_total[40,:]/volume[40], color='blue', label='20m Modeled DOC', linestyle='dashed')
+plt.scatter(df_obs_surf_doc["datetime"], df_obs_surf_doc["observation"], 
+            color='red', label='0m Observed DOC', marker='o', zorder=5)
+plt.scatter(df_obs_bot_doc["datetime"], df_obs_bot_doc["observation"], 
+            color='red', label='20m Observed DOC', marker='x', zorder=5)
+plt.ylabel("DOC (mg/L)", fontsize=15)
+plt.xlabel("Time", fontsize=15)
+plt.ylim(2, 8)
+plt.legend(loc='best')
+plt.show()
+
+df_obs_temp=pd.read_csv('/Users/emmamarchisin/Desktop/Research/Code/1D-AEMpy-UW-metabolism-EM/input/observedTemp.txt',  parse_dates=['datetime'])
+df_obs_temp['datetime'] = pd.to_datetime(df_obs_temp['datetime'], errors='coerce')
+df_obs_temp = df_obs_temp[(df_obs_temp['datetime'] >= startingDate) & (df_obs_temp['datetime'] <= endingDate)]
+
+df_obs_surf_temp = df_obs_temp[(df_obs_temp['Depth_meter'] == 1)]
+df_obs_bot_temp = df_obs_temp[(df_obs_temp['Depth_meter'] == 22)]
+
+plt.figure(figsize=(10, 5))
+plt.plot(times, temp[2,:], color= 'blue', label='1m Modeled Temp', linestyle= 'solid')
+plt.plot(times, temp[44,:], color= 'blue', label='22m Modeled Temp', linestyle= 'dashed')
+plt.plot(df_obs_surf_temp["datetime"], df_obs_surf_temp["Water_Temperature_celsius"], color= 'red', label='1m Observed Temp', marker='o', zorder=5, linestyle= 'solid')
+plt.plot(df_obs_bot_temp["datetime"], df_obs_bot_temp["Water_Temperature_celsius"], color= 'red', label='22m Observed Temp',  marker='o', zorder=5, linestyle= 'dashed')
+plt.ylabel("Temp.", fontsize=15)
+plt.xlabel("Time", fontsize=15) 
+plt.legend(loc='best')
+plt.show()
 # TODO
 # air water exchange
 # sediment loss POC

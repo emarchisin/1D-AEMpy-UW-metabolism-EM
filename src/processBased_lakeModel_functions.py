@@ -336,10 +336,10 @@ def provide_meteorology(meteofile, windfactor, lat, lon, elev):
 
     
     #daily_meteo['dt'] = (daily_meteo['date'] - daily_meteo['date'][0]).astype('timedelta64[s]') + 1
-    #time_diff = (daily_meteo['date'] - daily_meteo['date'][0]).astype('timedelta64[s]')
-    #daily_meteo['dt'] =time_diff.dt.total_seconds() + 1.0
-    time_diff = daily_meteo['date'] - daily_meteo['date'].iloc[0]
-    daily_meteo['dt'] = time_diff.dt.total_seconds() + 1.0
+    # time_diff = daily_meteo['date'] - daily_meteo['date'].iloc[0]
+    # daily_meteo['dt'] = time_diff.dt.total_seconds() + 1.0
+    time_diff = (daily_meteo['date'] - daily_meteo['date'][0]).astype('timedelta64[s]') ##RL init cond change
+    daily_meteo['dt'] =time_diff.dt.total_seconds() + 1
     daily_meteo['ea'] = (daily_meteo['Relative_Humidity_percent'] * 
       (4.596 * np.exp((17.27*(daily_meteo['Air_Temperature_celsius'])) /
       (237.3 + (daily_meteo['Air_Temperature_celsius']) ))) / 100)
@@ -477,16 +477,16 @@ def provide_phosphorus(tpfile, startingDate, startTime):
         daily_tp.loc[-1] = [startingDate, 'epi', daily_tp['tp'].iloc[0], startingDate, daily_tp['ditt'].iloc[0]]  # adding a row
         daily_tp.index = daily_tp.index + 1  # shifting index
         daily_tp.sort_index(inplace=True) 
-   # daily_tp['dt'] = (daily_tp['date'] - daily_tp['date'].iloc[0]).astype('timedelta64[s]') + startTime 
-    #time_diff = (daily_tp['date'] - daily_tp['date'].iloc[0]).astype('timedelta64[s]')
-    #daily_tp['dt'] =time_diff.dt.total_seconds() + startTime
-    time_diff = daily_tp['date'] - daily_tp['date'].iloc[0]
-    daily_tp['dt'] = time_diff.dt.total_seconds() + startTime
+        #daily_tp['dt'] = (daily_tp['date'] - daily_tp['date'].iloc[0]).astype('timedelta64[s]') + startTime 
+    # time_diff = daily_tp['date'] - daily_tp['date'].iloc[0]
+    # daily_tp['dt'] = time_diff.dt.total_seconds() + startTime
+    time_diff = (daily_tp['date'] - daily_tp['date'].iloc[0]).astype('timedelta64[s]') #RL init cond change
+    daily_tp['dt'] =time_diff.dt.total_seconds() + startTime
     return(daily_tp)
 
 
 def provide_carbon(ocloadfile, startingDate, startTime):
-    # Read OC load input file
+    # Read Daily OC load input file
     oc_load = pd.read_csv(ocloadfile)
     oc_load['datetime'] = pd.to_datetime(oc_load['datetime'])
     oc_load["date"] = oc_load["datetime"]
@@ -522,8 +522,12 @@ def provide_carbon(ocloadfile, startingDate, startTime):
     print("Unique datetimes in daily_oc:")
     print(daily_oc['date'].unique())
     print("Shape:", daily_oc.shape)
-
-    daily_oc['dt'] = (daily_oc['date'] - daily_oc['date'].iloc[0]).dt.total_seconds() + startTime
+    #daily_oc['dt'] = (daily_oc['date'] - daily_oc['date'].iloc[0]).dt.total_seconds() + startTime
+    # time_diff = daily_oc['date'] - daily_oc['date'].iloc[0]
+    # daily_oc['dt'] = time_diff.dt.total_seconds() + startTime
+    time_diff = (daily_oc['date'] - daily_oc['date'][0]).astype('timedelta64[s]') ##RL init cond change
+    daily_oc['dt'] =time_diff.dt.total_seconds() + 1
+    #daily_oc['dt'] = (daily_oc['date'] - daily_oc['date'].iloc[0]).dt.total_seconds() + startTime
     #compute total carbon load as oc_mgl * discharge
     daily_oc['total_carbon'] = daily_oc['oc'] * daily_oc['discharge']
     daily_oc['hourly_carbon']=daily_oc['total_carbon']/24
@@ -576,18 +580,26 @@ def wq_initial_profile(initfile, nx, dx, depth, volume, startDate):
   doc_obs = obs.loc[obs['variable'] == 'doc']
   doc_obs['ditt'] = abs(doc_obs['datetime'] - startDate)
   init_df = doc_obs.loc[doc_obs['ditt'] == doc_obs['ditt'].min()]
+  # if max(depth) > init_df.depth.max():
+  #   lastRow = init_df.loc[init_df.depth == init_df.depth.max()]
+  #   init_df = pd.concat([init_df, lastRow], ignore_index=True)
+  #   init_df.loc[init_df.index[-1], 'depth'] = max(depth)
+    
+  if init_df.depth.min()>0: #assumed mixed epi, if no 0m available then it pulls from shallowest option
+    shallowest = init_df.loc[init_df.depth == init_df.depth.min()].copy()
+    shallowest.loc[:, 'depth'] = 0.0  # set depth to 0
+    init_df = pd.concat([shallowest, init_df], ignore_index=True)  
   if max(depth) > init_df.depth.max():
     lastRow = init_df.loc[init_df.depth == init_df.depth.max()]
     init_df = pd.concat([init_df, lastRow], ignore_index=True)
     init_df.loc[init_df.index[-1], 'depth'] = max(depth)
-    
   profile_fun = interp1d(init_df.depth.values, init_df.observation.values)
   out_depths = depth# these aren't actually at the 0, 1, 2, ... values, actually increment by 1.0412; make sure okay
   doc = profile_fun(out_depths)
   
   u = np.vstack((do * volume, doc * volume))
   
-  # print(u)
+  #print(u)
   # TODO implement warning about profile vs. met start date
   
   return(u)
@@ -1929,7 +1941,7 @@ def atmospheric_module( # EM: I dont think we use this?
         k600 =  k_vachon(wind = Uw, area = area[0])
         piston_velocity = k600_to_kgas(k600 = k600, temperature = Tair, gas = "O2")/86400
     
-    o2_sat=do_sat_calc(u[0], baro=Pa, altitude =altitude)
+    o2_sat=do_sat_calc(u[0], baro=Pa, altitude =altitude) #baro=Pa
     atm_flux=piston_velocity*(o2_sat-o2[0]/volume[0])*area[0] #g/s
     o2[0] = (o2[0] +  # m/s g/m3 m2   m/s g/m3 m2 s -> ends up in g O2
         ( piston_velocity * (do_sat_calc(u[0], baro=Pa, altitude = altitude) - o2[0]/volume[0]) * area[0] ) * dt)
@@ -1984,7 +1996,7 @@ def boundary_module(
         # turb_factor = 1.0,
         #wind_factor = 1.0,
         p_max = 1.0/86400,
-        IP = 0.1,
+        IP = 0.1/86400,
         theta_npp = 1.08,
         theta_r = 1.08,
         # conversion_constant = 0.1,
@@ -2117,7 +2129,7 @@ def prodcons_module_woDOCL(
         turb_factor = 1.0,
         wind_factor = 1.0,
         p_max = 1.0/86400,
-        IP = 0.1,
+        IP = 0.1/86400,
         theta_npp = 1.08,
         conversion_constant = 0.1,
         sed_sink = -1.0 / 86400,
@@ -2251,7 +2263,8 @@ def prodcons_module_woDOCL(
         
         # npp = r_gpp * theta_npp**(u - 20) 
         growth = 1
-        npp = H * sw_to_par * IP_m * TP  * theta_npp**(u - 20) * volume 
+    
+        npp = H * sw_to_par * IP_m * TP  * theta_npp**(u - 20) * volume
         
         # print(npp)
         #print(growth)
@@ -3357,10 +3370,10 @@ def mixing_module_minlake_RL(
     u = un
     start_time = datetime.datetime.now()
     
-    if np.max(un) > 26:
-        print("it's too hot in here!! (mixing module), iteration:")
-        print("max temp:", np.max(u))
-        breakpoint()
+    # if np.max(un) > 26:
+    #     print("it's too hot in here!! (mixing module), iteration:")
+    #     print("max temp:", np.max(u))
+    #     breakpoint()
             
     
     if W_str is None:
@@ -3745,23 +3758,11 @@ def run_wq_model(
     def kd(n): # using this shortcut for now / testing if it works
       return kd_light
   
-    
  
-  
   #breakpoint()
   #times = np.arange(startTime, endTime, dt)
   times = np.arange(startTime * dt, endTime * dt, dt)
   for idn, n in enumerate(times):
-
-
-      # Calculating per-depth OC load
-    perdepth_oc = carbon(n) * hypso_weight
-    #perdepth_oc = carbon(n) / int(outflow_depth * 2)
-    perdepth_docr = perdepth_oc * prop_oc_docr
-    perdepth_docl = perdepth_oc * prop_oc_docl
-    perdepth_pocr = perdepth_oc * prop_oc_pocr
-    perdepth_pocl = perdepth_oc * prop_oc_pocl
-    
 
     #print(idn)
     if idn % 1000 == 0:
@@ -3790,9 +3791,18 @@ def run_wq_model(
     pocr_initial[:, idn] = pocr
     pocl_initial[:, idn] = pocl
     
+       
+      # Calculating per-depth OC load with hypsometric weighting
+    perdepth_oc = carbon(n) * hypso_weight
+    #perdepth_oc = carbon(n) / int(outflow_depth * 2)
+    perdepth_docr = perdepth_oc * prop_oc_docr
+    perdepth_docl = perdepth_oc * prop_oc_docl
+    perdepth_pocr = perdepth_oc * prop_oc_pocr
+    perdepth_pocl = perdepth_oc * prop_oc_pocl
+ 
     # OC loading
     
-    for i in range(0, int(outflow_depth * 2)):
+    for i in range(len(depth)): #0, int(outflow_depth * 2)
         docr[i] += perdepth_docr[i]
         docl[i] += perdepth_docl[i]
         pocr[i] += perdepth_pocr[i]
@@ -4247,7 +4257,7 @@ def run_wq_model(
     total_outflow = ((1 / hydro_res_time_hr) * sum(volume))
     volume_out=total_outflow*hypso_weight
     
-    for i in range(0,int(outflow_layers)):
+    for i in range(len(depth)): #0,int(outflow_layers)
         #docr[i] -= docr[i] / volume[i] * volume_out
         #docl[i] -= docl[i] / volume[i] * volume_out
        # pocr[i] -= pocr[i] / volume[i] * volume_out

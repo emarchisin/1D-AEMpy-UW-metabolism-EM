@@ -3692,7 +3692,9 @@ def run_wq_model(
               kind="linear", fill_value="extrapolate", bounds_error=False)
   
   
-  step_times = np.arange(startTime*dt, endTime*dt, dt)
+  start_ts = pd.Timestamp(startTime)
+  n_steps = len(timelabels)
+  step_times = np.arange(0, n_steps * dt, dt)
   nCol = len(step_times)
   um = np.full([nx, nCol], np.nan)
   kzm = np.full([nx, nCol], np.nan)
@@ -3761,7 +3763,8 @@ def run_wq_model(
  
   #breakpoint()
   #times = np.arange(startTime, endTime, dt)
-  times = np.arange(startTime * dt, endTime * dt, dt)
+  times = np.arange(0, n_steps * dt, dt)
+
   for idn, n in enumerate(times):
 
     #print(idn)
@@ -4430,6 +4433,7 @@ def run_wq_model(
       o2_pd = np.transpose(o2_pd)
       o2_diff = np.transpose(o2_diff)
       o2m = np.transpose(o2m)
+      o2_mgL = o2m / np.transpose(volume)
      # o2_mgL=(o2m/ volume[ np.newaxis,:]).T
       # pd.DataFrame(o2_initial).to_csv(training_data_path+"/do_initial00.csv", index = False)
       # pd.DataFrame(o2_ax).to_csv(training_data_path+"/do_ax01.csv", index = False)
@@ -4529,18 +4533,22 @@ def run_wq_model(
       #         os.remove(fullname)
       #         df.to_csv(fullname)
 
+      
+      def melt_var(arr_2d, datetimes, depth, varname):
+        arr_2d = np.asarray(arr_2d)
 
-      def melt_var(arr_2d, times, depth, varname):
-          arr_2d = np.asarray(arr_2d)  # shape = (depth, time)
-          if arr_2d.shape[0] == len(times) and arr_2d.shape[1] == len(depth):
-              arr_2d = arr_2d.T 
-          n_depths, n_times = arr_2d.shape
+        if arr_2d.shape[0] == len(datetimes) and arr_2d.shape[1] == len(depth):
+            arr_2d = arr_2d.T
 
-          return pd.DataFrame({
-              "datetime": np.repeat(pd.to_datetime(times), n_depths),
-              "depth": np.tile(depth, n_times),varname: arr_2d.flatten()
-          })
-     
+        n_depths, n_times = arr_2d.shape
+
+        return pd.DataFrame({
+            "datetime": np.repeat(datetimes, n_depths),
+            "depth": np.tile(depth, n_times),
+            varname: arr_2d.flatten()
+        })
+
+
       # Build long tables for all variables
       print("DEBUG SHAPES:")
       print("depth length:", len(depth))
@@ -4551,10 +4559,83 @@ def run_wq_model(
       print("doc_final shape:", np.asarray(doc_final).shape)
       print("poc_final shape:", np.asarray(poc_final).shape)
       print("TPm shape:", np.asarray(TPm).shape)
-#       dfs = []
+      dfs = []
+      dfs.append(melt_var(um, timelabels, depth, "WaterTemp_C"))
+      dfs.append(melt_var(o2_mgL, timelabels, depth, "Water_DO_mg_per_L"))
+      dfs.append(melt_var(doc_final, timelabels, depth, "Water_DOC_mg_per_L"))
+      dfs.append(melt_var(poc_final, timelabels, depth, "Water_POC_mg_per_L"))
+     # dfs.append(melt_var(TPm, times, depth, "Water_TP_mg_per_L"))
+      fm_lake = dfs[0]
+      for df in dfs[1:]:
+        fm_lake = fm_lake.merge(df, on=["datetime", "depth"], how="left")
+      fm_lake["Date"] = pd.to_datetime(fm_lake["datetime"]).dt.floor("D")
 
-#       dfs.append(melt_var(um,times, depth, "WaterTemp_C"))
-#       dfs.append(melt_var(o2_mgL, times, depth, "Water_DO_mg_per_L"))
+      fm_lake_daily = (
+       fm_lake
+        .groupby(["Date", "depth"], as_index=False)
+        .mean(numeric_only=True)
+        )
+      fm_lake_daily.to_csv(
+        os.path.join(training_data_path, f"lake{lake_num}_daily.csv"),
+         index=False
+       )
+     
+      fm_driver = pd.DataFrame({
+        
+        "datetime": timelabels,
+
+        "Shortwave_Wm2": meteo_pgdl[4, :],
+        "sum_Longwave_Radiation_Downwelling_wattPerMeterSquared": meteo_pgdl[1, :],
+        "AirTemp_C": meteo_pgdl[0, :],
+        "median_Ten_Meter_Elevation_Wind_Speed_meterPerSecond": meteo_pgdl[12, :],
+        "sum_Precipitation_millimeterPerDay": meteo_pgdl[15, :],
+        "Water_Secchi_m": secchim.flatten(),
+        "TP_load_g_per_d": TPm2.flatten(),  # TPm moved here
+    
+        #"Discharge_m3_per_d": discharge,
+       # "TOC_load_g_per_d": total_carbon
+        })
+      fm_driver["Date"] = fm_driver["datetime"].dt.floor("D")
+
+      sum_vars = [
+        "sum_Longwave_Radiation_Downwelling_wattPerMeterSquared",
+        "sum_Precipitation_millimeterPerDay",
+        "TP_load_g_per_d",
+        "TOC_load_g_per_d",
+        "Discharge_m3_per_d"
+       ]
+
+      median_vars = [
+        "Shortwave_Wm2",
+        "AirTemp_C",
+        "median_Ten_Meter_Elevation_Wind_Speed_meterPerSecond",
+        "Water_Secchi_m"
+        ]
+
+      fm_driver_daily = (
+            fm_driver
+            .groupby("Date")
+            .agg(
+                {**{v: "sum" for v in sum_vars if v in fm_driver},
+                **{v: "median" for v in median_vars if v in fm_driver}}
+            )
+            .reset_index()
+        )
+      print("Start:", fm_driver["datetime"].min())
+      print("End:", fm_driver["datetime"].max())
+      print("Days:", fm_driver["Date"].nunique())
+
+
+      fm_driver_daily.to_csv(
+            os.path.join(training_data_path, f"lake{lake_num}_driver_daily.csv"),
+            index=False
+        )
+
+
+
+
+     # dfs.append(melt_var(um,times, depth, "WaterTemp_C"))
+      #dfs.append(melt_var(o2_mgL, times, depth, "Water_DO_mg_per_L"))
 #       dfs.append(melt_var(doc_final,times, depth, "Water_DOC_mg_per_L"))
 #       dfs.append(melt_var(poc_final,times, depth, "Water_POC_mg_per_L"))
 #       #dfs.append(melt_var(TPm,             times, depth, "Water_TP_mg_per_L"))
@@ -4583,7 +4664,7 @@ def run_wq_model(
 #     #   fm_driver['Water_Secchi_m']=secchim.T.flatten()
 #     #   #fm_driver['TOC_load_g_per_d']=total_carbon.T.flatten()
 #     #   fm_driver['thermocline_depth_m']=thermo_depm.T.flatten()
-#     # #fm_driver['Discharge_m3_per_d']=p.repeat(discharge)
+   #  fm_driver['Discharge_m3_per_d']=p.repeat(discharge)
 #     #   #meteo_pgdl = res['meteo_input']
 #     #   fm_driver['AirTemp_C'] = meteo_pgdl[0, :]
 #     #   fm_driver['sum_Longwave_Radiation_Downwelling_wattPerMeterSquared'] = meteo_pgdl[1, :]

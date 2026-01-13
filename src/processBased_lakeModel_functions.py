@@ -3691,10 +3691,10 @@ def run_wq_model(
   carbon = interp1d(oc_load_input['dt'].values, oc_load_input['hourly_carbon'].values,
               kind="linear", fill_value="extrapolate", bounds_error=False)
   
-  
-  start_ts = pd.Timestamp(startTime)
-  n_steps = len(timelabels)
-  step_times = np.arange(0, n_steps * dt, dt)
+  step_times = np.arange(startTime*dt, endTime*dt, dt)
+  # start_ts = pd.Timestamp(startTime)
+  # n_steps = len(timelabels)
+  # step_times = np.arange(0, n_steps * dt, dt)
   nCol = len(step_times)
   um = np.full([nx, nCol], np.nan)
   kzm = np.full([nx, nCol], np.nan)
@@ -3762,8 +3762,8 @@ def run_wq_model(
   
  
   #breakpoint()
-  #times = np.arange(startTime, endTime, dt)
-  times = np.arange(0, n_steps * dt, dt)
+  times = np.arange(startTime*dt, endTime*dt, dt)
+  # times = np.arange(0, n_steps * dt, dt)
 
   for idn, n in enumerate(times):
 

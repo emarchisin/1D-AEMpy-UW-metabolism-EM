@@ -4142,6 +4142,7 @@ def run_wq_model(
         dt = dt,
         dx = dx,
         theta_r = theta_r,
+        theta_npp=theta_npp,
         k_half = k_half,
         resp_docr = resp_docr,
         resp_docl = resp_docl,

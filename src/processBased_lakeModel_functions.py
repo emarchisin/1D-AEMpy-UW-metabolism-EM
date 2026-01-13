@@ -2207,7 +2207,7 @@ def prodcons_module_woDOCL(
         p = np.zeros((5,5), dtype=float) #Create matrix of 0s
         p[0,0]=carbon_oxygen * npp #O2 production from NPP
         p[1,3]=(pocrn * resp_pocr * consumption) #DOC-R from POCr respiration
-        p[2,4]=(pocln * resp_pocl * consumption) + 0.2 * npp #POCl from POCl respiration + small NPP term
+        p[2,4]= 0.2 * npp #POCl from POCl respiration + small NPP term (pocln * resp_pocl * consumption) +
         p[4,4]=(0.8*npp) #POCl production from NPP
         
         #Destruction matrix (5x5)

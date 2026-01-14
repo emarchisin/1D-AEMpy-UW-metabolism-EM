@@ -306,16 +306,20 @@ temp_1m=temp[depth1,:]
 do_1m=o2[depth1,:]/volume[depth1]
 #gpp_1m=(npp[2,:] -1/86400 *(docl[2,:] * docl_respiration[2,:]+ docr[2,:] * docr_respiration[2,:] + pocl[2,:] * poc_respiration[2,:] + pocr[2,:] * poc_respiration[2,:]))*(1/volume[depth1])*3600#/volume[depth1]
 #r_1m=1/86400*(docl[2,:] * docl_respiration[2,:]+ docr[2,:] * docr_respiration[2,:] + pocl[2,:] * poc_respiration[2,:] + pocr[2,:] * poc_respiration[2,:])/volume[2]*3600#3600 to get from g/m3/s to g/m3/h
-r_1m_hour=((docl[depth1, :] * docl_respiration[depth1, :]) +
+r_1m_step=((docl[depth1, :] * docl_respiration[depth1, :]) +
     (docr[depth1, :] * docr_respiration[depth1, :]) +
     (pocl[depth1, :] * poc_respiration[depth1, :]) +
-    (pocr[depth1, :] * poc_respiration[depth1, :])) / volume[depth1]/24 #g/m3/h
-npp_1m_hour=npp[depth1,:]/volume[depth1]/24 #g/m3/h
-gpp_1m_hour=npp_1m_hour+r_1m_hour #g/m3/h
-atm_1m=atm_flux_output[0,:]/volume[0]/24 #g o2/m3/h
-delta_gpp1m=compute_delta_hourly(gpp_1m_hour)
-delta_r1m=compute_delta_hourly(r_1m_hour)
+    (pocr[depth1, :] * poc_respiration[depth1, :])) / volume[depth1] #fluxes in g/m3/d
+npp_1m_step=npp[depth1,:]/volume[depth1] #g/m3/d
+gpp_1m_step=npp_1m_step+r_1m_step #g/m3/d
+atm_1m=atm_flux_output[0,:]/volume[0] #g/m3/d
+delta_gpp1m=compute_delta_hourly(gpp_1m_step)
+delta_r1m=compute_delta_hourly(r_1m_step)
 delta_atm1m=compute_delta_hourly(atm_1m)  
+
+np.nanmax(gpp_1m_step)   # ~ 0–10
+np.nanmax(r_1m_step)     # ~ 0–10
+np.nanmax(npp_1m_step)
  
 fig, ax = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
 ax[0].plot(times, temp_1m, color='orangered')
@@ -327,20 +331,19 @@ ax[1].set_xlabel('Time')
 plt.tight_layout()
 plt.show()
 
-fig, ax = plt.subplots(5, 1, figsize=(12, 10), sharex=True)
-ax[0].plot(times, gpp_1m_hour*24, label='GPP', color='green')
+fig, ax = plt.subplots(6, 1, figsize=(12, 10), sharex=True)
+ax[0].plot(times, gpp_1m_step, label='GPP', color='green')
 #ax[0].set_ylabel('GPP (g/m3/d)')
 #ax[0].plot(times, npp[2,:]*24*3600/volume[2], label='NPP', color='black')
-ax[0].set_ylabel('GPP (g/m3/d)')
+ax[0].set_ylabel('GPP (g/m3/d) per hour')
 ax[0].legend()
-ax[1].plot(times, r_1m_hour*24, label='Respiration (R)', color='red')
-ax[1].set_ylabel('R (g/m3/d)')
+ax[1].plot(times, r_1m_step, label='Respiration (R)', color='red')
+ax[1].set_ylabel('R (g/m3/d) per hour')
 ax[1].legend()
-ax[2].plot(times, atm_1m*24, label='Atmospheric Exchange', color='purple')
-ax[2].set_ylabel('Atmospheric Exchange (g/m3/d)')
+ax[2].plot(times, atm_1m, label='Atmospheric Exchange', color='purple')
+ax[2].set_ylabel('Atmospheric Exchange (g/m3/d) per hour')
 ax[2].legend()
 ax[3].plot(times, delta_gpp1m, label='Δ GPP', color='darkgreen')
-ax[3].plot(times, delta_atm1m, label='Δ Atmospheric Exchange', color='indigo')
 ax[3].set_ylabel('Hourly Flux Change')
 ax[3].set_xlabel('Time')
 ax[3].legend()
@@ -348,8 +351,32 @@ ax[4].plot(times, delta_r1m, label='Δ R', color='darkred')
 ax[4].set_ylabel('Hourly Flux Change')
 ax[4].set_xlabel('Time')
 ax[4].legend()
+ax[5].plot(times, delta_atm1m, label='Δ Atmospheric Exchange', color='indigo')
+ax[5].set_ylabel('Hourly Flux Change')
+ax[5].set_xlabel('Time')
+ax[5].legend()
 plt.tight_layout()
 plt.show()
+
+gpp_1m_hourly = gpp_1m_step / 24
+r_1m_hourly = r_1m_step / 24
+atm_1m_hourly = atm_1m / 24
+fig, ax = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
+
+ax[0].plot(times, gpp_1m_hourly, label='GPP (hourly fraction)', color='green')
+ax[0].set_ylabel('GPP (g/m3/d)')
+ax[0].legend()
+
+ax[1].plot(times, r_1m_hourly, label='Respiration (hourly fraction)', color='red')
+ax[1].set_ylabel('R (g/m3/d)')
+ax[1].legend()
+
+ax[2].plot(times, atm_1m_hourly, label='Atmospheric Exchange (hourly fraction)', color='purple')
+ax[2].set_ylabel('Atmospheric Exchange (g/m3/d)')
+ax[2].legend()
+plt.show()
+
+
 
 
 plt.plot(times, energy_ratio[0,:])
@@ -504,7 +531,7 @@ print(np.max((np.transpose(np.transpose(npp)/volume)* 86400)))
 print(np.mean((np.transpose(np.transpose(npp)/volume)* 86400)))
 print(np.min((np.transpose(np.transpose(npp)/volume)* 86400)))
 fig, ax = plt.subplots(figsize=(15,5))
-sns.heatmap(np.log10(np.transpose(np.transpose(npp)/volume)* 86400), cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2)
+sns.heatmap((np.transpose(np.transpose(npp)/volume)), cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2)
 ax.contour(np.arange(.5, temp.shape[1]), np.arange(.5, temp.shape[0]), calc_dens(temp), levels=[999],
            colors=['black', 'gray'],
            linestyles = 'dotted')

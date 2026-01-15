@@ -322,11 +322,19 @@ def get_secview(secchifile):
     
     return(secview)
 
-def provide_meteorology(meteofile, windfactor, lat, lon, elev):
+def provide_meteorology(meteofile, windfactor, lat, lon, elev, startDate):
 
     meteo = pd.read_csv(meteofile)
     daily_meteo = meteo
+
     daily_meteo['date'] = pd.to_datetime(daily_meteo['datetime'])
+
+    daily_meteo = daily_meteo.loc[
+    (daily_meteo['date'] >= startDate) ]
+    daily_meteo['ditt'] = abs(daily_meteo['date'] - startDate)
+
+
+    
     daily_meteo['Cloud_Cover'] = calc_cc(date = daily_meteo['date'],
                                                 airt = daily_meteo['Air_Temperature_celsius'],
                                                 relh = daily_meteo['Relative_Humidity_percent'],
@@ -338,8 +346,11 @@ def provide_meteorology(meteofile, windfactor, lat, lon, elev):
     #daily_meteo['dt'] = (daily_meteo['date'] - daily_meteo['date'][0]).astype('timedelta64[s]') + 1
     # time_diff = daily_meteo['date'] - daily_meteo['date'].iloc[0]
     # daily_meteo['dt'] = time_diff.dt.total_seconds() + 1.0
-    time_diff = (daily_meteo['date'] - daily_meteo['date'][0]).astype('timedelta64[s]') ##RL init cond change
-    daily_meteo['dt'] =time_diff.dt.total_seconds() + 1
+
+    daily_meteo.reset_index(drop=True, inplace=True)
+
+    time_diff = (daily_meteo['date'] -  daily_meteo['date'][0]).astype('timedelta64[s]') ##RL init cond change
+    daily_meteo['dt'] =time_diff.dt.total_seconds() +1
     daily_meteo['ea'] = (daily_meteo['Relative_Humidity_percent'] * 
       (4.596 * np.exp((17.27*(daily_meteo['Air_Temperature_celsius'])) /
       (237.3 + (daily_meteo['Air_Temperature_celsius']) ))) / 100)
@@ -486,6 +497,7 @@ def provide_phosphorus(tpfile, startingDate, startTime):
 
 
 def provide_carbon(ocloadfile, startingDate, startTime):
+
     # Read Daily OC load input file
     oc_load = pd.read_csv(ocloadfile)
     oc_load['datetime'] = pd.to_datetime(oc_load['datetime'])
@@ -525,12 +537,13 @@ def provide_carbon(ocloadfile, startingDate, startTime):
     #daily_oc['dt'] = (daily_oc['date'] - daily_oc['date'].iloc[0]).dt.total_seconds() + startTime
     # time_diff = daily_oc['date'] - daily_oc['date'].iloc[0]
     # daily_oc['dt'] = time_diff.dt.total_seconds() + startTime
-    time_diff = (daily_oc['date'] - daily_oc['date'][0]).astype('timedelta64[s]') ##RL init cond change
+    time_diff = (daily_oc['datetime'] - daily_oc['datetime'][0]).astype('timedelta64[s]') ##RL init cond change
     daily_oc['dt'] =time_diff.dt.total_seconds() + 1
     #daily_oc['dt'] = (daily_oc['date'] - daily_oc['date'].iloc[0]).dt.total_seconds() + startTime
     #compute total carbon load as oc_mgl * discharge
     daily_oc['total_carbon'] = daily_oc['oc'] * daily_oc['discharge']
     daily_oc['hourly_carbon']=daily_oc['total_carbon']/24
+
 
     #fill in hourly times
 
@@ -2207,7 +2220,7 @@ def prodcons_module_woDOCL(
         p = np.zeros((5,5), dtype=float) #Create matrix of 0s
         p[0,0]=carbon_oxygen * npp #O2 production from NPP
         p[1,3]=(pocrn * resp_pocr * consumption) #DOC-R from POCr respiration
-        p[2,4]=(pocln * resp_pocl * consumption) + 0.2 * npp #POCl from POCl respiration + small NPP term
+        p[2,4]= 0.2 * npp #POCl from POCl respiration + small NPP term (pocln * resp_pocl * consumption) +
         p[4,4]=(0.8*npp) #POCl production from NPP
         
         #Destruction matrix (5x5)
@@ -2882,6 +2895,9 @@ def diffusion_module_dAdK_v2(
         dx,
         dt,
         nx,
+        Pa ,
+        altitude ,
+        Tair,
         g = 9.81,
         ice = 0,
         Cd = 0.013,
@@ -2898,6 +2914,7 @@ def diffusion_module_dAdK_v2(
     # ensure arrays
     un = np.asarray(un, dtype=float)
     kzn = np.asarray(kzn, dtype=float)
+
     area = np.asarray(area, dtype=float)
     depth = np.asarray(depth, dtype=float)
     vol_arr = np.asarray(volume, dtype=float)
@@ -3067,6 +3084,400 @@ def diffusion_module_dAdK_v2(
     print("diffusion (fixed CN RHS indexing):", end_time - start_time)
     return dat
 
+# def diffusion_module_dAdK_v2_do(
+#         un,
+#         o2n,
+#         docrn,
+#         docln,
+#         kzn,
+#         Uw,
+#         depth,
+#         area,
+#         volume,
+#         dx,
+#         dt,
+#         kd_light,
+#         nx,
+#         Pa ,
+#         altitude ,
+#         Tair,
+#         g = 9.81,
+#         ice = 0,
+#         Cd = 0.013,
+#         diffusion_method = 'hondzoStefan',
+#         scheme = 'implicit',
+#         f_sod = 1e-2,
+#         d_thick = 0.001,
+#         IP = 0.1,
+#         theta_npp = 1.08,
+#         theta_r = 1.08,
+#         conversion_constant = 0.1,
+#         sed_sink = -1.0 / 86400,
+#         k_half = 0.5,
+#         piston_velocity = 1.0):
+
+#     """
+#     Flux-form Crank-Nicolson with natural Neumann BCs (zero-flux).
+#     Fixed indexing bug in CN RHS to avoid out-of-bounds access.
+#     """
+
+#     start_time = datetime.datetime.now()
+
+#     # ensure arrays
+#     un = np.asarray(un, dtype=float)
+#     kzn = np.asarray(kzn, dtype=float)
+#     area = np.asarray(area, dtype=float)
+#     depth = np.asarray(depth, dtype=float)
+#     vol_arr = np.asarray(volume, dtype=float)
+
+
+    
+#     if ice:
+#         piston_velocity = 1e-5 / 86400
+#     else:
+#         #breakpoint()
+#         k600 =  k_vachon(wind = Uw, area = area[0])
+#         piston_velocity = k600_to_kgas(k600 = k600, temperature = Tair, gas = "O2")/86400
+
+#     n = len(un)
+#     if not (len(kzn) == n and len(area) == n and len(depth) == n and len(vol_arr) == n):
+#         raise ValueError("Arrays un, kzn, area, depth, volume must all have same length")
+
+#     # mass -> concentration for tracers using depth-specific layer volumes
+#     o2c   = np.asarray(o2n,  dtype=float) / vol_arr
+#     docrc = np.asarray(docrn, dtype=float) / vol_arr
+#     doclc = np.asarray(docln, dtype=float) / vol_arr
+
+#     K = kzn.copy()
+#     dz = float(dx)
+
+#     #Han and Bartels 1996
+#     d_sod = 10**(-4.410 + 773.8 /(un[nx-1] + 273.15) - (506.4/(un[nx-1] + 273.15))**2) / 10000
+
+#     atm_flux = piston_velocity * (do_sat_calc(un[0], baro=Pa, altitude = altitude) - o2n[0]/volume[0]) * area[0] #adjust for altitude
+#     sed_flux =  - (f_sod + d_sod/d_thick * o2n[nx-1]/volume[nx-1] * area[nx-1]) *  theta_r**(un[(nx-1)] - 20) 
+    
+
+#     # face-centered properties for internal faces (i+1/2 for i=0..n-2)
+#     A_face = 0.5 * (area[:-1] + area[1:])   # length n-1
+#     K_face = 0.5 * (K[:-1] + K[1:])         # length n-1
+
+#     # build L operator coefficients (flux-form)
+#     sub = np.zeros(n, dtype=float)
+#     diag = np.zeros(n, dtype=float)
+#     sup = np.zeros(n, dtype=float)
+
+#     for i in range(n):
+#         if i < n-1:
+#             A_r = A_face[i]; K_r = K_face[i]
+#         else:
+#             A_r = 0.0; K_r = 0.0
+
+#         if i > 0:
+#             A_l = A_face[i-1]; K_l = K_face[i-1]
+#         else:
+#             A_l = 0.0; K_l = 0.0
+
+#         denom = area[i] * dz * dz
+#         # if denom is zero (bad area), raise explicit error to avoid silent blow-ups
+#         if denom == 0.0:
+#             raise ValueError(f"area[{i}] is zero leading to division by zero in discretization")
+
+#         sub[i]  = (A_l * K_l) / denom
+#         sup[i]  = (A_r * K_r) / denom
+#         diag[i] = - (A_r * K_r + A_l * K_l) / denom
+
+#     # assemble banded matrix for (I - 0.5*dt*L)
+#     ab = np.zeros((3, n), dtype=float)
+#     ab[0,1:]   = -0.5 * dt * sup[:-1]   # upper diag
+#     ab[1,:]    = 1.0 - 0.5 * dt * diag  # main diag
+#     ab[2,:-1]  = -0.5 * dt * sub[1:]    # lower diag
+
+#     # small safety zeros
+#     ab[0,0] = 0.0
+#     ab[2,-1] = 0.0
+
+#     # Corrected RHS: compute (I + 0.5*dt*L) C with explicit boundary handling
+#     def apply_CN_rhs(C):
+#         C = np.asarray(C, dtype=float)
+#         out = np.empty_like(C)
+#         # top (i == 0): left face absent -> left flux = 0
+#         i = 0
+#         if n > 1:
+#             A_r = A_face[0]; K_r = K_face[0]
+#             A_l = 0.0; K_l = 0.0
+#             denom = area[0] * dz * dz
+#             LC_i = (A_r * K_r * (C[1] - C[0]) - 0.0 + atm_flux) / denom
+#             breakpoint()
+#         else:
+#             LC_i = 0.0
+#         out[0] = C[0] + 0.5 * dt * LC_i
+
+#         # interior points
+#         for i in range(1, n-1):
+#             A_r = A_face[i]; K_r = K_face[i]
+#             A_l = A_face[i-1]; K_l = K_face[i-1]
+#             denom = area[i] * dz * dz
+#             LC_i = (A_r * K_r * (C[i+1] - C[i]) - A_l * K_l * (C[i] - C[i-1])) / denom
+#             out[i] = C[i] + 0.5 * dt * LC_i
+
+#         # bottom (i == n-1): right face absent -> right flux = 0
+#         if n > 1:
+#             i = n-1
+#             A_r = 0.0; K_r = 0.0
+#             A_l = A_face[-1]; K_l = K_face[-1]
+#             denom = area[i] * dz * dz
+#             LC_i = (0.0 - A_l * K_l * (C[i] - C[i-1]) + sed_flux) / denom
+#             out[i] = C[i] + 0.5 * dt * LC_i
+#         else:
+#             # single cell domain
+#             out[0] = C[0]
+#         return out
+
+#     # Solve temperature
+#     if scheme == 'implicit':
+#         rhs_temp = apply_CN_rhs(un)
+#         u_new = solve_banded((1,1), ab, rhs_temp)
+#     else:
+#         # explicit fallback
+#         u_new = un.copy()
+#         for i in range(n):
+#             if i == 0:
+#                 if n > 1:
+#                     A_r = A_face[0]; K_r = K_face[0]; denom = area[0]*dz*dz
+#                     LC = (A_r*K_r*(un[1]-un[0]))/denom
+#                 else:
+#                     LC = 0.0
+#             elif i == n-1:
+#                 A_l = A_face[-1]; K_l = K_face[-1]; denom = area[i]*dz*dz
+#                 LC = (- A_l*K_l*(un[i]-un[i-1]))/denom
+#             else:
+#                 A_r = A_face[i]; K_r = K_face[i]; A_l = A_face[i-1]; K_l = K_face[i-1]
+#                 denom = area[i]*dz*dz
+#                 LC = (A_r*K_r*(un[i+1]-un[i]) - A_l*K_l*(un[i]-un[i-1]))/denom
+#             u_new[i] = un[i] + dt * LC
+
+#     # Tracers (O2, DOCr, DOCl)
+#     if scheme == 'implicit':
+#         rhs_o2 = apply_CN_rhs(o2c)
+#         o2c_new = solve_banded((1,1), ab, rhs_o2)
+
+#         rhs_docr = apply_CN_rhs(docrc)
+#         docr_c_new = solve_banded((1,1), ab, rhs_docr)
+
+#         rhs_docl = apply_CN_rhs(doclc)
+#         docl_c_new = solve_banded((1,1), ab, rhs_docl)
+#     else:
+#         o2c_new = o2c.copy(); docr_c_new = docrc.copy(); docl_c_new = doclc.copy()
+#         for i in range(n):
+#             if i == 0:
+#                 if n > 1:
+#                     denom = area[0]*dz*dz
+#                     LC_o2 = (A_face[0]*K_face[0]*(o2c[1]-o2c[0]))/denom
+#                     LC_docr = (A_face[0]*K_face[0]*(docrc[1]-docrc[0]))/denom
+#                     LC_docl = (A_face[0]*K_face[0]*(doclc[1]-doclc[0]))/denom
+#                 else:
+#                     LC_o2 = LC_docr = LC_docl = 0.0
+#             elif i == n-1:
+#                 denom = area[i]*dz*dz
+#                 LC_o2 = (-A_face[-1]*K_face[-1]*(o2c[i]-o2c[i-1]))/denom
+#                 LC_docr = (-A_face[-1]*K_face[-1]*(docrc[i]-docrc[i-1]))/denom
+#                 LC_docl = (-A_face[-1]*K_face[-1]*(doclc[i]-doclc[i-1]))/denom
+#             else:
+#                 denom = area[i]*dz*dz
+#                 LC_o2 = (A_face[i]*K_face[i]*(o2c[i+1]-o2c[i]) - A_face[i-1]*K_face[i-1]*(o2c[i]-o2c[i-1]))/denom
+#                 LC_docr = (A_face[i]*K_face[i]*(docrc[i+1]-docrc[i]) - A_face[i-1]*K_face[i-1]*(docrc[i]-docrc[i-1]))/denom
+#                 LC_docl = (A_face[i]*K_face[i]*(doclc[i+1]-doclc[i]) - A_face[i-1]*K_face[i-1]*(doclc[i]-doclc[i-1]))/denom
+
+#             o2c_new[i] = o2c[i] + dt * LC_o2
+#             docr_c_new[i] = docrc[i] + dt * LC_docr
+#             docl_c_new[i] = doclc[i] + dt * LC_docl
+
+#     # back to mass with depth-specific layer volumes
+#     o2_new = o2c_new * vol_arr
+#     docr_new = docr_c_new * vol_arr
+#     docl_new = docl_c_new * vol_arr
+
+#     end_time = datetime.datetime.now()
+
+#     dat = {
+#         'temp': u_new,
+#         'diffusivity': K,
+#         'alpha': float(np.max(0.5 * dt * (np.abs(sup) + np.abs(sub)))),
+#         'o2': o2_new,
+#         'docr': docr_new,
+#         'docl': docl_new
+#     }
+
+#     print("diffusion (fixed CN RHS indexing):", end_time - start_time)
+#     return dat
+
+def diffusion_module_dAdK_v2_do(
+    un,
+    o2n,
+    docrn,
+    docln,
+    kzn,
+    Uw,
+    depth,
+    area,
+    volume,
+    dx,
+    dt,
+    kd_light,
+    nx,
+    Pa,
+    altitude,
+    Tair,
+    g=9.81,
+    ice=0,
+    Cd=0.013,
+    diffusion_method='hondzoStefan',
+    scheme='implicit',
+    f_sod=1e-2,
+    d_thick=0.001,
+    IP=0.1,
+    theta_npp=1.08,
+    theta_r=1.08,
+    conversion_constant=0.1,
+    sed_sink=-1.0 / 86400,
+    k_half=0.5,
+    piston_velocity=1.0
+):
+
+    start_time = datetime.datetime.now()
+
+    # --- ensure arrays ---
+    un = np.asarray(un, dtype=float)
+    kzn = np.asarray(kzn, dtype=float)
+    area = np.asarray(area, dtype=float)
+    depth = np.asarray(depth, dtype=float)
+    vol = np.asarray(volume, dtype=float)
+
+    n = len(un)
+
+    # --- concentrations ---
+    o2c = np.asarray(o2n, dtype=float) / vol
+    docrc = np.asarray(docrn, dtype=float) / vol
+    doclc = np.asarray(docln, dtype=float) / vol
+
+    dz = float(dx)
+    K = kzn.copy()
+
+    # --- piston velocity ---
+    if ice:
+        piston_velocity = 1e-5 / 86400
+    else:
+        k600 = k_vachon(wind=Uw, area=area[0])
+        piston_velocity = k600_to_kgas(
+            k600=k600, temperature=Tair, gas="O2"
+        ) / 86400
+
+    # --- atmospheric O2 flux (mass / time) ---
+    F_atm = (
+        piston_velocity
+        * (do_sat_calc(un[0], baro=Pa, altitude=altitude) - o2c[0])
+        * area[0]
+    )
+
+    # --- sediment oxygen demand (mass / time) ---
+    d_sod = 10 ** (
+        -4.410
+        + 773.8 / (un[-1] + 273.15)
+        - (506.4 / (un[-1] + 273.15)) ** 2
+    ) / 10000
+
+    F_sed = -(
+        f_sod + d_sod / d_thick * o2c[-1] * area[-1]
+    ) * theta_r ** (un[-1] - 20)
+
+    # ------------------------------------------------------------------
+    # Diffusion operator (flux form, zero-flux BCs)
+    # ------------------------------------------------------------------
+
+    A_face = 0.5 * (area[:-1] + area[1:])
+    K_face = 0.5 * (K[:-1] + K[1:])
+
+    sub = np.zeros(n)
+    diag = np.zeros(n)
+    sup = np.zeros(n)
+
+    for i in range(n):
+        denom = area[i] * dz * dz
+        if i > 0:
+            sub[i] = A_face[i - 1] * K_face[i - 1] / denom
+        if i < n - 1:
+            sup[i] = A_face[i] * K_face[i] / denom
+        diag[i] = -(sub[i] + sup[i])
+
+    # --- CN matrix ---
+    ab = np.zeros((3, n))
+    ab[0, 1:] = -0.5 * dt * sup[:-1]
+    ab[1, :] = 1.0 - 0.5 * dt * diag
+    ab[2, :-1] = -0.5 * dt * sub[1:]
+
+    # --- RHS operator ---
+    def apply_CN_rhs(C):
+        out = C.copy()
+        for i in range(n):
+            if i == 0:
+                LC = sup[0] * (C[1] - C[0])
+            elif i == n - 1:
+                LC = -sub[-1] * (C[-1] - C[-2])
+            else:
+                LC = (
+                    sup[i] * (C[i + 1] - C[i])
+                    - sub[i] * (C[i] - C[i - 1])
+                )
+            out[i] += 0.5 * dt * LC
+        return out
+
+    # ------------------------------------------------------------------
+    # Temperature
+    # ------------------------------------------------------------------
+
+    rhs_T = apply_CN_rhs(un)
+    u_new = solve_banded((1, 1), ab, rhs_T)
+
+    # ------------------------------------------------------------------
+    # Tracers
+    # ------------------------------------------------------------------
+
+    o2c_new = solve_banded((1, 1), ab, apply_CN_rhs(o2c))
+    docr_new = solve_banded((1, 1), ab, apply_CN_rhs(docrc))
+    docl_new = solve_banded((1, 1), ab, apply_CN_rhs(doclc))
+
+    # ------------------------------------------------------------------
+    # Explicit boundary fluxes (THIS IS THE FIX)
+    # ------------------------------------------------------------------
+
+    o2c_new[0] += dt * F_atm / vol[0]
+    o2c_new[-1] += dt * F_sed / vol[-1]
+
+    # prevent negative oxygen
+    o2c_new = np.maximum(o2c_new, 0.0)
+
+    # ------------------------------------------------------------------
+    # Back to mass
+    # ------------------------------------------------------------------
+
+    o2_new = o2c_new * vol
+    docr_new = docr_new * vol
+    docl_new = docl_new * vol
+
+    end_time = datetime.datetime.now()
+
+    return {
+        "temp": u_new,
+        "diffusivity": K,
+        "o2": o2_new,
+        "docr": docr_new,
+        "docl": docl_new,
+        "runtime": end_time - start_time,
+    }
+
+
+
 def boundary_module_oxygen(
         un,
         o2n,
@@ -3170,15 +3581,19 @@ def boundary_module_oxygen(
     docl = docln #+ dt * npp * (0.2)
 
     #Han and Bartels 1996
-    d_sod = 10**(-4.410 + 773.8 /(u[nx-1] + 273.15) - (506.4/(u[nx-1] + 273.15))**2) / 10000
+    # d_sod = 10**(-4.410 + 773.8 /(u[nx-1] + 273.15) - (506.4/(u[nx-1] + 273.15))**2) / 10000
+    d_sod = 10**(-4.410 + 773.8 /(u + 273.15) - (506.4/(u + 273.15))**2) / 10000
 
     atm_flux = piston_velocity * (do_sat_calc(u[0], baro=Pa, altitude = altitude) - o2[0]/volume[0]) * area[0] #adjust for altitude
     
     o2[0] = o2[0] +  (atm_flux * dt)# m/s g/m3 m2   m/s g/m3 m2 s
         
-    
+    da_dz = np.gradient(area/depth)
+    dv_da = np.gradient(volume/area)
+    sed_flux = da_dz * dv_da * (-d_sod/d_thick * (o2/volume - o2/(2* volume)))
 
-    o2[(nx-1)] = o2[(nx-1)] - (f_sod + d_sod/d_thick * o2[nx-1]/volume[nx-1] * area[nx-1]) * dt * theta_r**(u[(nx-1)] - 20) 
+    o2 = o2 - sed_flux * dt * theta_r**(u - 20)
+    # o2[(nx-1)] = o2[(nx-1)] - (f_sod + d_sod/d_thick * o2[nx-1]/volume[nx-1] * area[nx-1]) * dt * theta_r**(u[(nx-1)] - 20) 
     
 
     if o2[(nx-1)] < 0:
@@ -3658,7 +4073,9 @@ def run_wq_model(
   training_data_path = None,
   timelabels = None,
   atm_flux=None, 
-  lake_num = 1
+  lake_num = 1,
+  f_sod = 1e-2,
+  d_thick = 0.001
   ):
     
   ## linearization of driver data, so model can have dynamic step
@@ -3692,7 +4109,10 @@ def run_wq_model(
               kind="linear", fill_value="extrapolate", bounds_error=False)
   
   
-  step_times = np.arange(startTime*dt, endTime*dt, dt)
+  start_ts = pd.Timestamp(startTime)
+  n_steps = len(timelabels)
+  step_times = np.arange(1, n_steps * dt, dt)
+  
   nCol = len(step_times)
   um = np.full([nx, nCol], np.nan)
   kzm = np.full([nx, nCol], np.nan)
@@ -3761,8 +4181,10 @@ def run_wq_model(
  
   #breakpoint()
   #times = np.arange(startTime, endTime, dt)
-  times = np.arange(startTime * dt, endTime * dt, dt)
+  times = np.arange(1, n_steps * dt, dt)
+
   for idn, n in enumerate(times):
+
 
     #print(idn)
     if idn % 1000 == 0:
@@ -3799,7 +4221,8 @@ def run_wq_model(
     perdepth_docl = perdepth_oc * prop_oc_docl
     perdepth_pocr = perdepth_oc * prop_oc_pocr
     perdepth_pocl = perdepth_oc * prop_oc_pocl
- 
+    
+
     # OC loading
     
     for i in range(len(depth)): #0, int(outflow_depth * 2)
@@ -3893,6 +4316,70 @@ def run_wq_model(
     
     
 
+    ## (WQ1) BOUNDARY ADDITION
+    # --> RL change
+    boundary_res = boundary_module_oxygen(
+        un = u,
+        o2n = o2,
+        docrn = docr,
+        docln = docl,
+        pocrn = pocr,
+        pocln = pocl,
+        area = area,
+        volume = volume,
+        depth = depth, 
+        nx = nx,
+        dt = dt,
+        dx = dx,
+        ice = ice,
+        altitude=altitude,
+        kd_ice = kd_ice,
+        Tair = Tair(n),
+        CC = CC(n),
+        ea = ea(n),
+        Jsw = Jsw(n),
+        Jlw = Jlw(n),
+        Uw = Uw(n),
+        Pa= Pa(n),
+        RH = RH(n),
+        kd_light = kd_light,
+        TP = TP(n),
+        Hi = Hi,
+        rho_snow = rho_snow,
+        Hs = Hs,
+        at_factor = at_factor,
+        sw_factor = sw_factor,
+        #turb_factor = turb_factor,
+        wind_factor = wind_factor,
+        p_max = p_max,
+        IP = IP,
+        theta_npp = theta_npp,
+        theta_r = theta_r,
+        #conversion_constant = conversion_constant,
+        sed_sink = sed_sink,
+        k_half = k_half,
+        f_sod = f_sod,
+        d_thick = d_thick
+        #piston_velocity = piston_velocity
+        )
+    
+    o2 = boundary_res['o2']
+    docr = boundary_res['docr']
+    docl = boundary_res['docl']
+    pocr = boundary_res['pocr']
+    pocl = boundary_res['pocl']
+    npp = boundary_res['npp']
+    atm_flux=boundary_res['atm_flux']
+    
+    o2_ax[:, idn] = o2
+    #for n in enumerate
+    atm_flux_output[:,idn] = atm_flux
+
+    o2_bc[:, idn] = o2
+    docr_bc[:, idn] = docr
+    docl_bc[:, idn] = docl
+    pocr_bc[:, idn] = pocr
+    pocl_bc[:, idn] = pocl
     
     dens_u_n2 = calc_dens(u)
     if 'kz' in locals():
@@ -3924,17 +4411,33 @@ def run_wq_model(
         Uw = Uw(n),
         depth= depth,
         volume = volume, 
+        Pa = Pa(n),
+        altitude = altitude,
+        Tair =Tair(n),
         dx = dx,
         area = area,
         dt = dt,
         nx = nx,
         ice = ice, 
         diffusion_method = diffusion_method,
-        scheme = scheme)
+        # kd_light = kd_light,
+        scheme = scheme
+        
+        )
+    # diffusion_res = diffusion_module_dAdK_v2_do(
+    #     un = u, o2n = o2, docrn = docr, docln = docl, kzn = kz,
+    #     Uw = Uw(n), depth = depth, area = area, volume = volume,
+    #     dx = dx, dt = dt, nx = nx,
+    #     Pa = Pa(n), altitude = altitude, Tair = Tair(n), 
+    #     g=9.81, ice=0, Cd=0.013,
+    #     scheme='implicit',
+    #     f_sod=1e-2, d_thick=0.001,
+    #     theta_r=1.08
+    # )
     
     u = diffusion_res['temp']
     kz = diffusion_res['diffusivity']
-    alpha = diffusion_res['alpha']
+    # alpha = diffusion_res['alpha']
     o2 = diffusion_res['o2']
     docr = diffusion_res['docr']
     docl = diffusion_res['docl']
@@ -4044,68 +4547,6 @@ def run_wq_model(
     # #for n in enumerate
     # atm_flux_output[:,idn] = atm_flux
     
-    ## (WQ1) BOUNDARY ADDITION
-    # --> RL change
-    boundary_res = boundary_module_oxygen(
-        un = u,
-        o2n = o2,
-        docrn = docr,
-        docln = docl,
-        pocrn = pocr,
-        pocln = pocl,
-        area = area,
-        volume = volume,
-        depth = depth, 
-        nx = nx,
-        dt = dt,
-        dx = dx,
-        ice = ice,
-        altitude=altitude,
-        kd_ice = kd_ice,
-        Tair = Tair(n),
-        CC = CC(n),
-        ea = ea(n),
-        Jsw = Jsw(n),
-        Jlw = Jlw(n),
-        Uw = Uw(n),
-        Pa= Pa(n),
-        RH = RH(n),
-        kd_light = kd_light,
-        TP = TP(n),
-        Hi = Hi,
-        rho_snow = rho_snow,
-        Hs = Hs,
-        at_factor = at_factor,
-        sw_factor = sw_factor,
-        #turb_factor = turb_factor,
-        wind_factor = wind_factor,
-        p_max = p_max,
-        IP = IP,
-        theta_npp = theta_npp,
-        theta_r = theta_r,
-        #conversion_constant = conversion_constant,
-        sed_sink = sed_sink,
-        k_half = k_half,
-        #piston_velocity = piston_velocity
-        )
-    
-    o2 = boundary_res['o2']
-    docr = boundary_res['docr']
-    docl = boundary_res['docl']
-    pocr = boundary_res['pocr']
-    pocl = boundary_res['pocl']
-    npp = boundary_res['npp']
-    atm_flux=boundary_res['atm_flux']
-    
-    o2_ax[:, idn] = o2
-    #for n in enumerate
-    atm_flux_output[:,idn] = atm_flux
-
-    o2_bc[:, idn] = o2
-    docr_bc[:, idn] = docr
-    docl_bc[:, idn] = docl
-    pocr_bc[:, idn] = pocr
-    pocl_bc[:, idn] = pocl
 
     #breakpoint()
     
@@ -4139,6 +4580,7 @@ def run_wq_model(
         dt = dt,
         dx = dx,
         theta_r = theta_r,
+        theta_npp=theta_npp,
         k_half = k_half,
         resp_docr = resp_docr,
         resp_docl = resp_docl,
@@ -4430,6 +4872,7 @@ def run_wq_model(
       o2_pd = np.transpose(o2_pd)
       o2_diff = np.transpose(o2_diff)
       o2m = np.transpose(o2m)
+      o2_mgL = o2m / np.transpose(volume)
      # o2_mgL=(o2m/ volume[ np.newaxis,:]).T
       # pd.DataFrame(o2_initial).to_csv(training_data_path+"/do_initial00.csv", index = False)
       # pd.DataFrame(o2_ax).to_csv(training_data_path+"/do_ax01.csv", index = False)
@@ -4529,18 +4972,22 @@ def run_wq_model(
       #         os.remove(fullname)
       #         df.to_csv(fullname)
 
+      
+      def melt_var(arr_2d, datetimes, depth, varname):
+        arr_2d = np.asarray(arr_2d)
 
-      def melt_var(arr_2d, times, depth, varname):
-          arr_2d = np.asarray(arr_2d)  # shape = (depth, time)
-          if arr_2d.shape[0] == len(times) and arr_2d.shape[1] == len(depth):
-              arr_2d = arr_2d.T 
-          n_depths, n_times = arr_2d.shape
+        if arr_2d.shape[0] == len(datetimes) and arr_2d.shape[1] == len(depth):
+            arr_2d = arr_2d.T
 
-          return pd.DataFrame({
-              "datetime": np.repeat(pd.to_datetime(times), n_depths),
-              "depth": np.tile(depth, n_times),varname: arr_2d.flatten()
-          })
-     
+        n_depths, n_times = arr_2d.shape
+
+        return pd.DataFrame({
+            "datetime": np.repeat(datetimes, n_depths),
+            "depth": np.tile(depth, n_times),
+            varname: arr_2d.flatten()
+        })
+
+
       # Build long tables for all variables
       print("DEBUG SHAPES:")
       print("depth length:", len(depth))
@@ -4551,10 +4998,83 @@ def run_wq_model(
       print("doc_final shape:", np.asarray(doc_final).shape)
       print("poc_final shape:", np.asarray(poc_final).shape)
       print("TPm shape:", np.asarray(TPm).shape)
-#       dfs = []
+      dfs = []
+      dfs.append(melt_var(um, timelabels, depth, "WaterTemp_C"))
+      dfs.append(melt_var(o2_mgL, timelabels, depth, "Water_DO_mg_per_L"))
+      dfs.append(melt_var(doc_final, timelabels, depth, "Water_DOC_mg_per_L"))
+      dfs.append(melt_var(poc_final, timelabels, depth, "Water_POC_mg_per_L"))
+     # dfs.append(melt_var(TPm, times, depth, "Water_TP_mg_per_L"))
+      fm_lake = dfs[0]
+      for df in dfs[1:]:
+        fm_lake = fm_lake.merge(df, on=["datetime", "depth"], how="left")
+      fm_lake["Date"] = pd.to_datetime(fm_lake["datetime"]).dt.floor("D")
 
-#       dfs.append(melt_var(um,times, depth, "WaterTemp_C"))
-#       dfs.append(melt_var(o2_mgL, times, depth, "Water_DO_mg_per_L"))
+      fm_lake_daily = (
+       fm_lake
+        .groupby(["Date", "depth"], as_index=False)
+        .mean(numeric_only=True)
+        )
+      fm_lake_daily.to_csv(
+        os.path.join(training_data_path, f"lake{lake_num}_daily.csv"),
+         index=False
+       )
+     
+      fm_driver = pd.DataFrame({
+        
+        "datetime": timelabels,
+
+        "Shortwave_Wm2": meteo_pgdl[4, :],
+        "sum_Longwave_Radiation_Downwelling_wattPerMeterSquared": meteo_pgdl[1, :],
+        "AirTemp_C": meteo_pgdl[0, :],
+        "median_Ten_Meter_Elevation_Wind_Speed_meterPerSecond": meteo_pgdl[12, :],
+        "sum_Precipitation_millimeterPerDay": meteo_pgdl[15, :],
+        "Water_Secchi_m": secchim.flatten(),
+        "TP_load_g_per_d": TPm2.flatten(),  # TPm moved here
+    
+        #"Discharge_m3_per_d": discharge,
+       # "TOC_load_g_per_d": total_carbon
+        })
+      fm_driver["Date"] = fm_driver["datetime"].dt.floor("D")
+
+      sum_vars = [
+        "sum_Longwave_Radiation_Downwelling_wattPerMeterSquared",
+        "sum_Precipitation_millimeterPerDay",
+        "TP_load_g_per_d",
+        "TOC_load_g_per_d",
+        "Discharge_m3_per_d"
+       ]
+
+      median_vars = [
+        "Shortwave_Wm2",
+        "AirTemp_C",
+        "median_Ten_Meter_Elevation_Wind_Speed_meterPerSecond",
+        "Water_Secchi_m"
+        ]
+
+      fm_driver_daily = (
+            fm_driver
+            .groupby("Date")
+            .agg(
+                {**{v: "sum" for v in sum_vars if v in fm_driver},
+                **{v: "median" for v in median_vars if v in fm_driver}}
+            )
+            .reset_index()
+        )
+      print("Start:", fm_driver["datetime"].min())
+      print("End:", fm_driver["datetime"].max())
+      print("Days:", fm_driver["Date"].nunique())
+
+
+      fm_driver_daily.to_csv(
+            os.path.join(training_data_path, f"lake{lake_num}_driver_daily.csv"),
+            index=False
+        )
+
+
+
+
+     # dfs.append(melt_var(um,times, depth, "WaterTemp_C"))
+      #dfs.append(melt_var(o2_mgL, times, depth, "Water_DO_mg_per_L"))
 #       dfs.append(melt_var(doc_final,times, depth, "Water_DOC_mg_per_L"))
 #       dfs.append(melt_var(poc_final,times, depth, "Water_POC_mg_per_L"))
 #       #dfs.append(melt_var(TPm,             times, depth, "Water_TP_mg_per_L"))
@@ -4583,7 +5103,7 @@ def run_wq_model(
 #     #   fm_driver['Water_Secchi_m']=secchim.T.flatten()
 #     #   #fm_driver['TOC_load_g_per_d']=total_carbon.T.flatten()
 #     #   fm_driver['thermocline_depth_m']=thermo_depm.T.flatten()
-#     # #fm_driver['Discharge_m3_per_d']=p.repeat(discharge)
+   #  fm_driver['Discharge_m3_per_d']=p.repeat(discharge)
 #     #   #meteo_pgdl = res['meteo_input']
 #     #   fm_driver['AirTemp_C'] = meteo_pgdl[0, :]
 #     #   fm_driver['sum_Longwave_Radiation_Downwelling_wattPerMeterSquared'] = meteo_pgdl[1, :]

@@ -2278,7 +2278,7 @@ def prodcons_module_woDOCL(
         growth = 1
     
         npp = H * sw_to_par * IP_m * TP  * theta_npp**(u - 20) * volume
-        
+
         # print(npp)
         #print(growth)
         #breakpoint()

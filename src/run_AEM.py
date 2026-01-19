@@ -115,8 +115,8 @@ for lake_num in range(1, num_lakes + 1):
     res = run_wq_model(
         # RUNTIME CONFIG
         lake_num=lake_num,
-        startTime=startTime,
-        endTime=endTime,
+        startTime=startingDate,
+        endTime=endingDate,
         nx=run_config["nx"],
         dt=run_config["dt"],
         dx=run_config["dx"],
@@ -395,17 +395,19 @@ ax.contour(np.arange(.5, temp.shape[1]), np.arange(.5, temp.shape[0]), calc_dens
            linestyles = 'dotted')
 ax.set_ylabel("Depth (m)", fontsize=15)
 ax.set_xlabel("Time", fontsize=15)    
-ax.collections[0].colorbar.set_label("Water Temperature  ($^\circ$C)")
+ax.collections[0].colorbar.set_label("Water Temperature  (dC)")
 xticks_ix = np.array(ax.get_xticks()).astype(int)
 time_label = times[xticks_ix]
 nelement = len(times)//N_pts
 #time_label = time_label[::nelement]
-ax.xaxis.set_major_locator(plt.MaxNLocator(N_pts * n_years))
-ax.set_xticklabels(time_label, rotation=45, ha = 'right')
+#ax.xaxis.set_major_locator(plt.MaxNLocator(N_pts * n_years))
+ax.set_xticklabels(time_label.strftime("%d-%m-%y"), rotation=45, ha = 'right')
 yticks_ix = np.array(ax.get_yticks()).astype(int)
 depth_label = yticks_ix / 2
 ax.set_yticklabels(depth_label, rotation=0)
 plt.show()
+
+
 
 fig, ax = plt.subplots(figsize=(15,5))
 sns.heatmap(diff, cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2, vmin = 1e-4, vmax = 1e-2)
@@ -419,8 +421,8 @@ xticks_ix = np.array(ax.get_xticks()).astype(int)
 time_label = times[xticks_ix]
 nelement = len(times)//N_pts
 #time_label = time_label[::nelement]
-ax.xaxis.set_major_locator(plt.MaxNLocator(N_pts * n_years))
-ax.set_xticklabels(time_label, rotation=45, ha = 'right')
+#ax.xaxis.set_major_locator(plt.MaxNLocator(N_pts * n_years))
+ax.set_xticklabels(time_label.strftime("%d-%m-%y"), rotation=45, ha = 'right')
 yticks_ix = np.array(ax.get_yticks()).astype(int)
 depth_label = yticks_ix / 2
 ax.set_yticklabels(depth_label, rotation=0)
@@ -442,7 +444,7 @@ time_label = times[xticks_ix]
 nelement = len(times)//N_pts
 #time_label = time_label[::nelement]
 #ax.xaxis.set_major_locator(plt.MaxNLocator(N_pts * n_years))
-ax.set_xticklabels(time_label, rotation=45, ha = 'right')
+ax.set_xticklabels(time_label.strftime("%d-%m-%y"), rotation=45, ha = 'right')
 yticks_ix = np.array(ax.get_yticks()).astype(int)
 depth_label = yticks_ix / 2
 ax.set_yticklabels(depth_label, rotation=0)
@@ -462,7 +464,7 @@ time_label = times[xticks_ix]
 nelement = len(times)//N_pts
 #time_label = time_label[::nelement]
 #ax.xaxis.set_major_locator(plt.MaxNLocator(N_pts * n_years)) need back for labels
-ax.set_xticklabels(time_label, rotation=45, ha = 'right')
+ax.set_xticklabels(time_label.strftime("%d-%m-%y"), rotation=45, ha = 'right')
 yticks_ix = np.array(ax.get_yticks()).astype(int)
 depth_label = yticks_ix / 2
 ax.set_yticklabels(depth_label, rotation=0)
@@ -481,8 +483,8 @@ xticks_ix = np.array(ax.get_xticks()).astype(int)
 time_label = times[xticks_ix]
 nelement = len(times)//N_pts
 #time_label = time_label[::nelement]
-ax.xaxis.set_major_locator(plt.MaxNLocator(N_pts * n_years))
-ax.set_xticklabels(time_label, rotation=45, ha = 'right')
+#ax.xaxis.set_major_locator(plt.MaxNLocator(N_pts * n_years))
+ax.set_xticklabels(time_label.strftime("%d-%m-%y"), rotation=45, ha = 'right')
 yticks_ix = np.array(ax.get_yticks()).astype(int)
 depth_label = yticks_ix / 2
 ax.set_yticklabels(depth_label, rotation=0)
@@ -501,8 +503,8 @@ xticks_ix = np.array(ax.get_xticks()).astype(int)
 time_label = times[xticks_ix]
 nelement = len(times)//N_pts
 #time_label = time_label[::nelement]
-ax.xaxis.set_major_locator(plt.MaxNLocator(N_pts * n_years))
-ax.set_xticklabels(time_label, rotation=45, ha = 'right')
+#ax.xaxis.set_major_locator(plt.MaxNLocator(N_pts * n_years))
+ax.set_xticklabels(time_label.strftime("%d-%m-%y"), rotation=45, ha = 'right')
 yticks_ix = np.array(ax.get_yticks()).astype(int)
 depth_label = yticks_ix / 2
 ax.set_yticklabels(depth_label, rotation=0)
@@ -520,16 +522,16 @@ xticks_ix = np.array(ax.get_xticks()).astype(int)
 time_label = times[xticks_ix]
 nelement = len(times)//N_pts
 #time_label = time_label[::nelement]
-ax.xaxis.set_major_locator(plt.MaxNLocator(N_pts * n_years))
-ax.set_xticklabels(time_label, rotation=45, ha = 'right')
+#ax.xaxis.set_major_locator(plt.MaxNLocator(N_pts * n_years))
+ax.set_xticklabels(time_label.strftime("%d-%m-%y"), rotation=45, ha = 'right')
 yticks_ix = np.array(ax.get_yticks()).astype(int)
 depth_label = yticks_ix / 2
 ax.set_yticklabels(depth_label, rotation=0)
 plt.show()
 
-print(np.max((np.transpose(np.transpose(npp)/volume)* 86400)))
-print(np.mean((np.transpose(np.transpose(npp)/volume)* 86400)))
-print(np.min((np.transpose(np.transpose(npp)/volume)* 86400)))
+print(np.max((np.transpose(np.transpose(npp)/volume))))
+print(np.mean((np.transpose(np.transpose(npp)/volume))))
+print(np.min((np.transpose(np.transpose(npp)/volume))))
 fig, ax = plt.subplots(figsize=(15,5))
 sns.heatmap((np.transpose(np.transpose(npp)/volume)), cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2)
 ax.contour(np.arange(.5, temp.shape[1]), np.arange(.5, temp.shape[0]), calc_dens(temp), levels=[999],
@@ -542,8 +544,8 @@ xticks_ix = np.array(ax.get_xticks()).astype(int)
 time_label = times[xticks_ix]
 nelement = len(times)//N_pts
 #time_label = time_label[::nelement]
-ax.xaxis.set_major_locator(plt.MaxNLocator(N_pts * n_years))
-ax.set_xticklabels(time_label, rotation=45, ha = 'right')
+#ax.xaxis.set_major_locator(plt.MaxNLocator(N_pts * n_years))
+ax.set_xticklabels(time_label.strftime("%d-%m-%y"), rotation=45, ha = 'right')
 yticks_ix = np.array(ax.get_yticks()).astype(int)
 depth_label = yticks_ix / 2
 ax.set_yticklabels(depth_label, rotation=0)
@@ -562,8 +564,8 @@ xticks_ix = np.array(ax.get_xticks()).astype(int)
 time_label = times[xticks_ix]
 nelement = len(times)//N_pts
 #time_label = time_label[::nelement]
-ax.xaxis.set_major_locator(plt.MaxNLocator(N_pts * n_years))
-ax.set_xticklabels(time_label, rotation=45, ha = 'right')
+#ax.xaxis.set_major_locator(plt.MaxNLocator(N_pts * n_years))
+ax.set_xticklabels(time_label.strftime("%d-%m-%y"), rotation=45, ha = 'right')
 yticks_ix = np.array(ax.get_yticks()).astype(int)
 depth_label = yticks_ix / 2
 ax.set_yticklabels(depth_label, rotation=0)
@@ -581,8 +583,8 @@ xticks_ix = np.array(ax.get_xticks()).astype(int)
 time_label = times[xticks_ix]
 nelement = len(times)//N_pts
 #time_label = time_label[::nelement]
-ax.xaxis.set_major_locator(plt.MaxNLocator(N_pts * n_years))
-ax.set_xticklabels(time_label, rotation=45, ha = 'right')
+#ax.xaxis.set_major_locator(plt.MaxNLocator(N_pts * n_years))
+ax.set_xticklabels(time_label.strftime("%d-%m-%y"), rotation=45, ha = 'right')
 yticks_ix = np.array(ax.get_yticks()).astype(int)
 depth_label = yticks_ix / 2
 ax.set_yticklabels(depth_label, rotation=0)
@@ -601,8 +603,8 @@ xticks_ix = np.array(ax.get_xticks()).astype(int)
 time_label = times[xticks_ix]
 nelement = len(times)//N_pts
 #time_label = time_label[::nelement]
-ax.xaxis.set_major_locator(plt.MaxNLocator(N_pts * n_years))
-ax.set_xticklabels(time_label, rotation=45, ha = 'right')
+#ax.xaxis.set_major_locator(plt.MaxNLocator(N_pts * n_years))
+ax.set_xticklabels(time_label.strftime("%d-%m-%y"), rotation=45, ha = 'right')
 yticks_ix = np.array(ax.get_yticks()).astype(int)
 depth_label = yticks_ix / 2
 ax.set_yticklabels(depth_label, rotation=0)
@@ -621,12 +623,14 @@ plt.show()
 # plt.plot(o2[(nx-1),:]/volume[(nx-1)])
 
 plt.plot(o2[1,1:(24*28)]/volume[1]/4, color = 'blue', label = 'O2')
-gpp = npp[1,:] -1/86400 *(docl[1,:] * docl_respiration[1,:]+ docr[1,:] * docr_respiration[1,:] + pocl[1,:] * poc_respiration[1,:] + pocr[1,:] * poc_respiration[1,:])
-plt.plot(npp[1,1:(24*28)]/volume[1] * 86400, color = 'yellow', label = 'NPP') 
-plt.plot(1/86400*(docl[1,1:(24*28)] * docl_respiration[1,1:(24*28)]+ docr[1,1:(24*28)] * docr_respiration[1,1:(24*28)] + pocl[1,1:(24*28)] * poc_respiration[1,1:(24*28)] + pocr[1,1:(24*28)] * poc_respiration[1,1:(24*28)])/volume[1] * 86400, color = 'red', label = 'R') 
-plt.plot(gpp[1:(24*28)]/volume[1] * 86400, color = 'green', label = 'GPP')
+gpp = npp[1,:]/86400 -1/86400 *(docl[1,:] * docl_respiration[1,:]+ docr[1,:] * docr_respiration[1,:] + pocl[1,:] * poc_respiration[1,:] + pocr[1,:] * poc_respiration[1,:])
+plt.plot(npp[1,1:(24*28)]/volume[1], color = 'yellow', label = 'GPP') 
+plt.plot((-1) * 1/86400*(docl[1,1:(24*28)] * docl_respiration[1,1:(24*28)]+ docr[1,1:(24*28)] * docr_respiration[1,1:(24*28)] + pocl[1,1:(24*28)] * poc_respiration[1,1:(24*28)] + pocr[1,1:(24*28)] * poc_respiration[1,1:(24*28)])/volume[1] * 86400, color = 'red', label = 'R') 
+plt.plot(gpp[1:(24*28)]/volume[1] * 86400, color = 'green', label = 'NEP')
 plt.legend(loc='best')
 plt.show() 
+
+
 
 plt.plot(times, kd[0,:])
 plt.ylabel("kd (/m)")

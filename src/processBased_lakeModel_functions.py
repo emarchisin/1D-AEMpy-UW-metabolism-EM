@@ -23,6 +23,7 @@ from scipy.linalg import solve_banded
 from scipy.stats.stats import pearsonr
 
 
+
 ## function to calculate density from temperature
 def calc_dens(wtemp):
     dens = (999.842594 + (6.793952 * 1e-2 * wtemp) - (9.095290 * 1e-3 *wtemp**2) +
@@ -2372,7 +2373,7 @@ def prodcons_module_woDOCL(
     
     poc_respiration = pocl_respiration
     end_time = datetime.datetime.now()
-    print("wq production and consumption: " + str(end_time - start_time))
+    #print("wq production and consumption: " + str(end_time - start_time))
     
     dat = {'o2': o2,
            'docr': docr,
@@ -2778,17 +2779,17 @@ def diffusion_module_dAdK(
         # alpha = (area_diff * kzn_diff * dt) / (area * dx**2)
         alpha = ( dt) / (2 * area * dx**2)
         
-        if max(alpha) > 1:
+        #if max(alpha) > 1:
 
-            print('Warning: alpha > 1')
-            print("Warning: ",max(alpha)," > 1")
+            #print('Warning: alpha > 1')
+            #print("Warning: ",max(alpha)," > 1")
             
             
             
-            if all(alpha > 1):
-                alpha = alpha
-            else:
-                alpha[alpha > 1] = max(alpha[alpha < 1])
+            # if all(alpha > 1):
+            #     alpha = alpha
+            # else:
+            #     alpha[alpha > 1] = max(alpha[alpha < 1])
             
         # alpha = (area * kzn * dt) / (dx**2)
         # https://math.stackexchange.com/questions/4705090/using-crank-nicolson-to-solve-the-diffusion-equation-with-variable-diffusivity-a
@@ -2871,7 +2872,7 @@ def diffusion_module_dAdK(
 
     
     end_time = datetime.datetime.now()
-    print("diffusion: " + str(end_time - start_time))
+    #print("diffusion: " + str(end_time - start_time))
     
     dat = {'temp': u,
            'diffusivity': kz,
@@ -3081,7 +3082,7 @@ def diffusion_module_dAdK_v2(
         'docl': docl_new
     }
 
-    print("diffusion (fixed CN RHS indexing):", end_time - start_time)
+    #print("diffusion (fixed CN RHS indexing):", end_time - start_time)
     return dat
 
 # def diffusion_module_dAdK_v2_do(
@@ -3600,7 +3601,7 @@ def boundary_module_oxygen(
         o2[(nx-1)] = 0
 
     end_time = datetime.datetime.now()
-    print("wq boundary flux: " + str(end_time - start_time))
+    #print("wq boundary flux: " + str(end_time - start_time))
     
     dat = {'o2': o2,
            'atm_flux':atm_flux,
@@ -3662,9 +3663,9 @@ def advection_diffusion_module(
         
         theta = settling_rate * dt / dx 
         
-        if max(alpha[1:]) > 1:
-            print('Warning: alpha > 1')
-            print("Warning: ",max(alpha[1:])," > 1")
+        #if max(alpha[1:]) > 1:
+            #print('Warning: alpha > 1')
+            #print("Warning: ",max(alpha[1:])," > 1")
             
         # alpha = (area * kzn * dt) / (dx**2)
         
@@ -3753,7 +3754,7 @@ def advection_diffusion_module(
     # breakpoint()
     
     end_time = datetime.datetime.now()
-    print("advection_diffusion: " + str(end_time - start_time))
+    #print("advection_diffusion: " + str(end_time - start_time))
     
     dat = {'pocr': pocrn,
            'pocl': pocln,
@@ -3963,7 +3964,7 @@ def mixing_module_minlake_RL(
     energy_ratio = MLD
     
     end_time = datetime.datetime.now()
-    print("mixing: " + str(end_time - start_time))
+    #print("mixing: " + str(end_time - start_time))
     
     dat = {'temp': u,
            'o2': o2,
@@ -4183,13 +4184,13 @@ def run_wq_model(
   #times = np.arange(startTime, endTime, dt)
   times = np.arange(1, n_steps * dt, dt)
 
-  for idn, n in enumerate(times):
+  for idn, n in enumerate(tqdm(times)):
 
 
     #print(idn)
-    if idn % 1000 == 0:
+    #if idn % 1000 == 0:
         
-        print (f"iteration: {idn} for lake: {lake_num}")
+        #print (f"iteration: {idn} for lake: {lake_num}")
         
           
     un = deepcopy(u)
@@ -4479,8 +4480,8 @@ def run_wq_model(
     pocl_diff[:, idn] = pocl
     
     # --> RL change
-    if np.max(u) > 26:
-        print("WARNING: high temp before mixing: ", np.max(u))
+    # if np.max(u) > 26:
+    #     print("WARNING: high temp before mixing: ", np.max(u))
     mixing_res = mixing_module_minlake_RL(
         un = u,
         o2n = o2,

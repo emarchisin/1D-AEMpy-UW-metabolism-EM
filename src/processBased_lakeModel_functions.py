@@ -1916,7 +1916,7 @@ def do_sat_calc(temp, baro=None, altitude = 0, salinity = 0, _warn_printed=[Fals
     if baro is not None and baro > 2000:
         baro=baro/100 # Pa -> hPa
         if not _warn_printed [0]:
-            print(" Warning: barometric pressure > 2000, assuming Pa and converting to hPa") # print warning to user
+            print(" Warning: barometric pressure > 2000, assuming Pa and converting to hPa for DO sat calcs") # print warning to user
             _warn_printed[0]= True 
             
     u = 10 ** (8.10765 - 1750.286 / (235 + temp)) # u is vapor pressure of water; water temp is used as an approximation for water & air temp at the air-water boundary
@@ -4433,7 +4433,7 @@ def run_wq_model(
     #     g=9.81, ice=0, Cd=0.013,
     #     scheme='implicit',
     #     f_sod=1e-2, d_thick=0.001,
-    #     theta_r=1.08
+    #     theta_r=1.08, kd_light=kd_light
     # )
     
     u = diffusion_res['temp']
@@ -4701,10 +4701,10 @@ def run_wq_model(
     volume_out=total_outflow*hypso_weight
     
     for i in range(len(depth)): #0,int(outflow_layers)
-        #docr[i] -= docr[i] / volume[i] * volume_out
-        #docl[i] -= docl[i] / volume[i] * volume_out
-       # pocr[i] -= pocr[i] / volume[i] * volume_out
-       #pocl[i] -= pocl[i] / volume[i] * volume_out
+        # docr[i] -= docr[i] / volume[i] * volume_out
+        # docl[i] -= docl[i] / volume[i] * volume_out
+        # pocr[i] -= pocr[i] / volume[i] * volume_out
+        # pocl[i] -= pocl[i] / volume[i] * volume_out
         docr[i] -= docr[i] / volume[i] * volume_out[i]
         docl[i] -= docl[i] / volume[i] * volume_out[i]
         pocr[i] -= pocr[i] / volume[i] * volume_out[i]

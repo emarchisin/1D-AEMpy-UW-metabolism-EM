@@ -40,7 +40,7 @@ def calc_cc(date, airt,  swr, lat, lon, elev,  relh = None, dewt = None,daily = 
     hb1 = pi/12 * (hour - 1 - dts)
     hb1[dum1] = hb1[dum1] + pi
     hb1[dum2] = hb1[dum2] - pi
-    hb = hb1
+    hb = hb1 
     dum3 = np.where(hb1 > 2 * pi)
     hb[dum3] = hb[dum3] - 2 * pi
     dum4 = np.where(hb1 < 0)
@@ -72,19 +72,25 @@ def calc_cc(date, airt,  swr, lat, lon, elev,  relh = None, dewt = None,daily = 
     a1 = np.exp(-(0.465 + 0.134 * Pwc) * (0.129 + 0.171 * np.exp(-0.88 * theta_am)) * theta_am)
     at = (a2 + 0.5 * (1 - a1 - cd))/(1 - 0.5 * Rg * (1 - a1 - cd))
     Ho = at * Ho
+    Ho = pd.Series(Ho, index=date.index)
     dum5 = np.where(Ho < 0)
     Ho.iloc[dum5] = 1
+    # Ho[dum5] = 1
+    # Ho.loc[Ho < 0] = 1
     df = pd.DataFrame({'DateTime' : date.values, 'Ho' : Ho.values})
     if daily == True:
         df['DateTime'] = df.DateTime.dt.date
         dfd = df.groupby(['DateTime'])['Ho'].mean()
         df = dfd.reset_index()
-    df['swr'] = swr
+    df['swr'] = swr.values
     df['ccsim'] = np.nan
     
     df.loc[df.Ho >= df.swr, "ccsim"] = ((1 - (df['swr']/df['Ho'])) / 0.65).apply(np.sqrt)
 
     df.loc[df.ccsim > 1, "ccsim"] = 1
+    print("Ho summary:", df.Ho.describe())
+    print("swr summary:", df.swr.describe())
+    print("Non-NaN ccsim count:", df.ccsim.notna().sum())
     ccsim_fillvals = tuple(df.ccsim.dropna().values[[0,-1]])
     #df['dt'] = (df['DateTime'] - df['DateTime'][0]).astype('timedelta64[s]') + 1
     # time_diff = df['DateTime'] - df['DateTime'].iloc[0]

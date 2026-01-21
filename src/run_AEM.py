@@ -718,7 +718,8 @@ plt.title("Particulate Organic Carbon (POC)")
 plt.show()
 
 #Check against observed data
-df_obs=pd.read_csv('../input/mendota_driver_data_v3.csv',  parse_dates=['datetime'])
+#df_obs=pd.read_csv('../input/mendota_driver_data_v3.csv',  parse_dates=['datetime'])
+df_obs=pd.read_csv('../input/Peter Lake/peter_driver2.csv',  parse_dates=['datetime'])
 df_obs['datetime'] = pd.to_datetime(df_obs['datetime'], errors='coerce')
 df_obs = df_obs[(df_obs['datetime'] >= startingDate) & (df_obs['datetime'] <= endingDate)]
 df_obs_surf_do = df_obs[(df_obs['variable'] == 'do') & (df_obs['depth'] == 1)]
@@ -751,7 +752,8 @@ plt.ylim(2, 8)
 plt.legend(loc='best')
 plt.show()
 
-df_obs_temp=pd.read_csv('../input/observedTemp.txt',  parse_dates=['datetime'])
+#df_obs_temp=pd.read_csv('../input/observedTemp.txt',  parse_dates=['datetime'])
+df_obs_temp=pd.read_csv('../input/Peter Lake/peter_wtemph.csv',  parse_dates=['datetime'])
 df_obs_temp['datetime'] = pd.to_datetime(df_obs_temp['datetime'], errors='coerce')
 df_obs_temp = df_obs_temp[(df_obs_temp['datetime'] >= startingDate) & (df_obs_temp['datetime'] <= endingDate)]
 

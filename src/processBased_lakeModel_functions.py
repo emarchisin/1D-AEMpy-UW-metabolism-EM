@@ -2282,17 +2282,28 @@ def prodcons_module_woDOCL(
         growth = 1
 
 
-        npp = H * sw_to_par * IP_m * np.tanh(TP/30) * GPP_inc  * theta_npp**(u - 20) * area * 1/1000
+        #npp = H * sw_to_par * IP_m * np.tanh(TP/30) * GPP_inc  * theta_npp**(u - 20) * area * 1/1000
 
-        # print(npp)
-        #print(growth)
-        #breakpoint()
-        #if gpp > 0:
-        #    breakpoint()
             
-        temp =  theta_npp**(u - 20) # * (y[6]/volume)/(k_half +  y[6]/volume)
+        # * (y[6]/volume)/(k_half +  y[6]/volume)
         #if H> 0:
             
+        PAR = H * sw_to_par / 1e6 # mol/m2/s 
+
+        P_max = 1.5 * 10**(-6) # mol C/m2/s
+        alpha_P = 0.03 # mol C per mol photon
+        LIGHTUSEBYPHOTOS = 0.3 # proportion of the ambient light taken up by phytos
+
+        P_I = P_max * (1 - exp(- (alpha_P*LIGHTUSEBYPHOTOS) * PAR/P_max)) # mol C/m2/s
+
+        k_TP = 0.03 # mg/L
+
+        f_TP = TP / (k_TP + TP) # dimensionless
+
+        temp =  theta_npp**(u - 20) 
+
+        npp  = P_I * f_TP * temp * area
+    
         #breakpoint() 
         ci =0
         # Get the production and destruction term:
@@ -2341,7 +2352,7 @@ def prodcons_module_woDOCL(
         y = np.linalg.solve(a, r)
         # breakpoint()
         return [y, 86400 * resp[0] * consumption, 86400 * resp[1] * consumption, 86400 * resp[2] * consumption, 86400 * resp[3] * consumption,
-                npp * 86400]
+                npp * 86400 * 12]
     
     docr_respiration = o2 * 0.0
     docl_respiration = o2 * 0.0

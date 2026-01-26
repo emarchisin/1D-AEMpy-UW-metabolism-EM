@@ -75,8 +75,6 @@ def calc_cc(date, airt,  swr, lat, lon, elev,  relh = None, dewt = None,daily = 
     Ho = pd.Series(Ho, index=date.index)
     dum5 = np.where(Ho < 0)
     Ho.iloc[dum5] = 1
-    # Ho[dum5] = 1
-    # Ho.loc[Ho < 0] = 1
     df = pd.DataFrame({'DateTime' : date.values, 'Ho' : Ho.values})
     if daily == True:
         df['DateTime'] = df.DateTime.dt.date

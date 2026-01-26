@@ -2153,7 +2153,8 @@ def prodcons_module_woDOCL(
         #grazing_ratio = 0.1,not used in function
         alpha_gpp = 0.1/3600,
         beta_gpp = 4.2/3600,
-        o2_to_chla = 41.5/3600): 
+        o2_to_chla = 41.5/3600,
+        GPP_inc = 1): 
 
     
     ## (1) HEAT ADDITION
@@ -2213,16 +2214,18 @@ def prodcons_module_woDOCL(
         growth = growth #growth.item()
         temp =temp.item()
         
-        carbon_oxygen = 1.6  # 32/12
+        oxygen = 32 # 32/12
+        carbon = 12
+        carbon_oxygen = oxygen / carbon
         q = 0.015
         e = 0.95
         
         #Production matrix (5x5) <---- EM: Restructure code for ease of viewing
         p = np.zeros((5,5), dtype=float) #Create matrix of 0s
-        p[0,0]=carbon_oxygen * npp #O2 production from NPP
+        p[0,0]= npp * oxygen #O2 production from NPP
         p[1,3]=(pocrn * resp_pocr * consumption) #DOC-R from POCr respiration
-        p[2,4]= 0.1 * npp #DOCl from POCl respiration + small NPP term (pocln * resp_pocl * consumption) +
-        p[4,4]= 0.9 * npp #POCl production from NPP
+        p[2,4]= 0.2 * npp * carbon #POCl from POCl respiration + small NPP term (pocln * resp_pocl * consumption) +
+        p[4,4]=(0.8*npp * carbon) #POCl production from NPP
         
         #Destruction matrix (5x5)
         d = np.zeros((5,5), dtype=float) #create matrix of 0s
@@ -2250,7 +2253,7 @@ def prodcons_module_woDOCL(
         #breakpoint()H
         return p,d
 
-    def solve_mprk(fun, y0, dt, dx, resp, theta_r, u, volume, k_half, H, sw_to_par, IP_m, TP, theta_npp, kd_light, depth, Jsw,
+    def solve_mprk(fun, y0, dt, dx, resp, theta_r, u, volume, GPP_inc, area, k_half, H, sw_to_par, IP_m, TP, theta_npp, kd_light, depth, Jsw,
                    p = 1.0 / 86400, h = 55 / 4.16, m = 2 /1000):
         
         # par https://strang.smhi.se/extraction/units-conversion.html
@@ -2277,18 +2280,30 @@ def prodcons_module_woDOCL(
         
         # npp = r_gpp * theta_npp**(u - 20) 
         growth = 1
-    
-        npp = H * sw_to_par * IP_m * TP  * theta_npp**(u - 20) * volume
 
-        # print(npp)
-        #print(growth)
-        #breakpoint()
-        #if gpp > 0:
-        #    breakpoint()
+
+        #npp = H * sw_to_par * IP_m * np.tanh(TP/30) * GPP_inc  * theta_npp**(u - 20) * area * 1/1000
+
             
-        temp =  theta_npp**(u - 20) # * (y[6]/volume)/(k_half +  y[6]/volume)
+        # * (y[6]/volume)/(k_half +  y[6]/volume)
         #if H> 0:
             
+        PAR = H * sw_to_par / 1e6 # mol/m2/s 
+
+        P_max = 1.5 * 10**(-6) # mol C/m2/s
+        alpha_P = 0.03 # mol C per mol photon
+        LIGHTUSEBYPHOTOS = 0.3 # proportion of the ambient light taken up by phytos
+
+        P_I = P_max * (1 - exp(- (alpha_P*LIGHTUSEBYPHOTOS) * PAR/P_max)) # mol C/m2/s
+
+        k_TP = 0.03 # mg/L
+
+        f_TP = TP / (k_TP + TP) # dimensionless
+
+        temp =  theta_npp**(u - 20) 
+
+        npp  = P_I * f_TP * temp * area
+    
         #breakpoint() 
         ci =0
         # Get the production and destruction term:
@@ -2337,7 +2352,7 @@ def prodcons_module_woDOCL(
         y = np.linalg.solve(a, r)
         # breakpoint()
         return [y, 86400 * resp[0] * consumption, 86400 * resp[1] * consumption, 86400 * resp[2] * consumption, 86400 * resp[3] * consumption,
-                npp * 86400]
+                npp * 86400 * 12]
     
     docr_respiration = o2 * 0.0
     docl_respiration = o2 * 0.0
@@ -2356,7 +2371,7 @@ def prodcons_module_woDOCL(
         
         mprk_res = solve_mprk(fun, y0 =  [o2n[dep], docrn[dep], docln[dep], pocrn[dep], pocln[dep]], dt = dt, dx = dx,
                resp = [resp_docr, resp_docl, resp_pocr, resp_pocl], theta_r = theta_r, u = u[dep],
-               volume = volume[dep], k_half = k_half,
+               volume = volume[dep], GPP_inc =GPP_inc, area = area[dep],k_half = k_half,
                H = H[dep], sw_to_par = sw_to_par, IP_m = IP_m, TP = TP, theta_npp = theta_npp,
                kd_light = kd_light, depth = depth[dep], Jsw = H_in)
         o2[dep], docr[dep], docl[dep], pocr[dep], pocl[dep] = mprk_res[0]
@@ -3593,7 +3608,7 @@ def boundary_module_oxygen(
     dv_da = np.gradient(volume/area)
     sed_flux = da_dz * dv_da * (-d_sod/d_thick * (o2/volume - o2/(2* volume)))
 
-    o2 = o2 - sed_flux * dt * theta_r**(u - 20)
+    o2 = o2 - f_sod + sed_flux * dt * theta_r**(u - 20)
     # o2[(nx-1)] = o2[(nx-1)] - (f_sod + d_sod/d_thick * o2[nx-1]/volume[nx-1] * area[nx-1]) * dt * theta_r**(u[(nx-1)] - 20) 
     
 
@@ -4076,7 +4091,8 @@ def run_wq_model(
   atm_flux=None, 
   lake_num = 1,
   f_sod = 1e-2,
-  d_thick = 0.001
+  d_thick = 0.001,
+  GPP_inc = 1
   ):
     
   ## linearization of driver data, so model can have dynamic step
@@ -4269,7 +4285,7 @@ def run_wq_model(
    
     IceSnowAttCoeff = heating_res['IceSnowAttCoeff']
     
-    plt.plot(u, color = 'red')
+    #plt.plot(u, color = 'red')
     
     um_heat[:, idn] = u
     ## (5) ICE AND SNOW
@@ -4308,7 +4324,7 @@ def run_wq_model(
     supercooled = ice_res['supercooled']
     rho_snow = ice_res['density_snow']
     
-    plt.plot(u, color = 'blue')
+    #plt.plot(u, color = 'blue')
     
     um_ice[:, idn] = u
     icem[:, idn] = ice
@@ -4444,7 +4460,7 @@ def run_wq_model(
     docl = diffusion_res['docl']
 
     
-    plt.plot(u, color = 'purple')
+    #plt.plot(u, color = 'purple')
     
     kzm[:,idn] = kz
     um_diff[:, idn] = u
@@ -4499,7 +4515,7 @@ def run_wq_model(
         ice = ice, 
         W_str = W_str)
     
-    plt.plot(u, color = 'green')
+    #plt.plot(u, color = 'green')
     
     #breakpoint()
     #breakpoint()
@@ -4525,7 +4541,7 @@ def run_wq_model(
     
     u = convection_res['temp']
     
-    plt.plot(u, color = 'black')
+    #plt.plot(u, color = 'black')
     
     ## (WQ0) ATMOSPHERIC EXCHANGE
     # <-- RL change
@@ -4587,7 +4603,8 @@ def run_wq_model(
         resp_docl = resp_docl,
         resp_poc = resp_poc,
         resp_pocl=resp_pocl,
-        resp_pocr=resp_pocr)
+        resp_pocr=resp_pocr,
+        GPP_inc = GPP_inc)
     
     o2 = prodcons_res['o2']
     docr = prodcons_res['docr']
@@ -4672,7 +4689,7 @@ def run_wq_model(
         #breakpoint()
     
     #breakpoint()
-    plt.plot(u)
+    #plt.plot(u)
     # mixing_res = mixing_module_minlake(
     #     un = u,
     #     o2n = o2,

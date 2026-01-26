@@ -23,23 +23,23 @@ from processBased_lakeModel_functions import get_hypsography, provide_meteorolog
 
 Start = datetime.datetime.now()
 num_lakes = get_num_data_columns(
-    "../input/Peter Lake/lake_config.csv", "Zmax" 
+    "../input/ME/lake_config.csv", "Zmax" 
 )
 
 for lake_num in range(1, num_lakes + 1):
 
    
     lake_config = get_lake_config( # RL: added Longitdue, Latitude and Elevation
-        "../input/Peter Lake/lake_config.csv", lake_num
+        "../input/ME/lake_config.csv", lake_num
     )
     model_params = get_model_params(
-        "../input/Peter Lake/model_params.csv", lake_num
+        "../input/ME/model_params.csv", lake_num
     )
     run_config = get_run_config(
-        "../input/Peter Lake/run_config.csv", lake_num
+        "../input/ME/run_config.csv", lake_num
     )
     ice_and_snow = get_ice_and_snow(
-        "../input/Peter Lake/ice_and_snow.csv", lake_num
+        "../input/ME/ice_and_snow.csv", lake_num
     )
     # windfactor = float(lake_config["WindSpeed"])
     windfactor = float(model_params["wind_factor"])
@@ -48,7 +48,7 @@ for lake_num in range(1, num_lakes + 1):
     dt = float(run_config["dt"])# 24 hours times 60 min/hour times 60 seconds/min to convert s to day
     dx = float(run_config["dx"]) # spatial step
     ## area and depth values of our lake 
-    area, depth, volume, hypso_weight = get_hypsography(hypsofile = '../input/Peter Lake/bathymetry.csv',#'../input/Peter Lake/bathymetry.csv',
+    area, depth, volume, hypso_weight = get_hypsography(hypsofile = '../input/ME/bathymetry.csv',#'../input/Peter Lake/bathymetry.csv',
                             dx = dx, nx = nx, outflow_depth=float(lake_config["outflow_depth"]))
     #area, depth, volume = get_hypsography(hypsofile = '../input/bathymetry.csv',
       #                      dx = dx, nx = nx)
@@ -94,7 +94,7 @@ for lake_num in range(1, num_lakes + 1):
                     windfactor = windfactor, lat = lake_config["Latitude"], lon = lake_config["Longitude"], elev = lake_config["Elevation"],
                     startDate = startingDate)
 
-    pd.DataFrame(meteo_all).to_csv("../input/Peter Lake/NLDAS-ME-meteo16-24.csv", index = False)
+    pd.DataFrame(meteo_all).to_csv("../input/ME/NLDAS-ME-meteo16-24.csv", index = False)
                      
     atm_flux_output = np.zeros(nTotalSteps,) 
     u_ini = initial_profile(initfile = run_config["u_ini_file"], nx = nx, dx = dx,
@@ -145,8 +145,8 @@ for lake_num in range(1, num_lakes + 1):
         o2=deepcopy(wq_ini[0]),  # already read
         docr=deepcopy(wq_ini[1])*.75, #* 1.3,
         docl=deepcopy(wq_ini[1])*.25,#1.0 * volume,
-        pocr=0.25 * volume, #0.5
-        pocl=0.25 * volume, #0.5
+        pocr=0.5 * volume, #0.5
+        pocl=0.5 * volume, #0.5
 
         # meteorology & boundary forcing
         daily_meteo=meteo_all,
@@ -338,13 +338,13 @@ fig, ax = plt.subplots(6, 1, figsize=(12, 10), sharex=True)
 ax[0].plot(times, gpp_1m_step, label='GPP', color='green')
 #ax[0].set_ylabel('GPP (g/m3/d)')
 #ax[0].plot(times, npp[2,:]*24*3600/volume[2], label='NPP', color='black')
-ax[0].set_ylabel('GPP (g/m3/d) per hour')
+ax[0].set_ylabel('GPP (g/m3/d)')
 ax[0].legend()
 ax[1].plot(times, r_1m_step, label='Respiration (R)', color='red')
-ax[1].set_ylabel('R (g/m3/d) per hour')
+ax[1].set_ylabel('R (g/m3/d)')
 ax[1].legend()
 ax[2].plot(times, atm_1m, label='Atmospheric Exchange', color='purple')
-ax[2].set_ylabel('Atmospheric Exchange (g/m3/d) per hour')
+ax[2].set_ylabel('Atmospheric Exchange (g/m3/d)')
 ax[2].legend()
 ax[3].plot(times, delta_gpp1m, label='Δ GPP', color='darkgreen')
 ax[3].set_ylabel('Hourly Flux Change')
@@ -675,11 +675,11 @@ plt.plot(times, temp[0,:] - temp[(nx-1),:], color = 'red')
 plt.show()
 
 #Diagnostic graphs at depth 
-# depths = [2,44]   # Python indices for depth=1 and depth=22
-# labels = ['Depth 1', 'Depth 22']
+depths = [2,44]   # Python indices for depth=1 and depth=22
+labels = ['Depth 1', 'Depth 22']
 
-depths = [2,32]   # Python indices for depth=1 and depth=22
-labels = ['Depth 1', 'Depth 32']
+# depths = [2,32]   # Python indices for depth=1 and depth=22
+# labels = ['Depth 1', 'Depth 32']
 
 doc_total = np.add(docl, docr)
 poc_total = np.add(pocl, pocr)
@@ -733,7 +733,7 @@ plt.show()
 # Plot POC
 plt.figure(figsize=(10, 5))
 for i, d in enumerate(depths):
-    plt.plot(times, poc_total[d, :]/volume[d], label=f'POC at {labels[i]}', linestyle='-', color=('orange' if d == 1 else 'gold'))
+    plt.plot(times, poc_total[d, :]/volume[d], label=f'POC at {labels[i]}', linestyle='-', color=('orange' if d == 2 else 'gold'))
 plt.ylabel("POC (mg/L)")
 plt.xlabel("Time")
 #plt.ylim(0, 8)
@@ -742,67 +742,67 @@ plt.title("Particulate Organic Carbon (POC)")
 plt.show()
 
 #Check against observed data
-#df_obs=pd.read_csv('../input/mendota_driver_data_v3.csv',  parse_dates=['datetime'])
-df_obs=pd.read_csv('../input/Peter Lake/peter_driver2.csv',  parse_dates=['datetime'])
+df_obs=pd.read_csv('../input/mendota_driver_data_v3.csv',  parse_dates=['datetime'])
+# df_obs=pd.read_csv('../input/Peter Lake/peter_driver2.csv',  parse_dates=['datetime'])
 df_obs['datetime'] = pd.to_datetime(df_obs['datetime'], errors='coerce')
 df_obs = df_obs[(df_obs['datetime'] >= startingDate) & (df_obs['datetime'] <= endingDate)]
 df_obs_surf_do = df_obs[(df_obs['variable'] == 'do') & (df_obs['depth'] == 1)]
 df_obs_surf_do['datetime'] = pd.to_datetime(df_obs_surf_do['datetime'], format = 'mixed')
-#df_obs_bot_do= df_obs[(df_obs['variable'] == 'do') & (df_obs['depth'] == 22)] #ME
-df_obs_bot_do= df_obs[(df_obs['variable'] == 'do') & (df_obs['depth'] == 8)] #Peter Max DO depth
+df_obs_bot_do= df_obs[(df_obs['variable'] == 'do') & (df_obs['depth'] == 22)] #ME
+# df_obs_bot_do= df_obs[(df_obs['variable'] == 'do') & (df_obs['depth'] == 8)] #Peter Max DO depth
 
 plt.figure(figsize=(10, 5))
 plt.plot(times, o2[2,:]/volume[2], color= 'blue', label='1m Modeled DO', linestyle= 'solid')
-#plt.plot(times, o2[44,:]/volume[44], color= 'blue', label='22m Modeled DO', linestyle= 'dashed') #ME
-plt.plot(times, o2[16,:]/volume[16], color= 'blue', label='8m Modeled DO', linestyle= 'dashed') #Peter
+plt.plot(times, o2[44,:]/volume[44], color= 'blue', label='22m Modeled DO', linestyle= 'dashed') #ME
+# plt.plot(times, o2[16,:]/volume[16], color= 'blue', label='8m Modeled DO', linestyle= 'dashed') #Peter
 plt.plot(df_obs_surf_do["datetime"], df_obs_surf_do["observation"], color= 'red', label='1m Observed DO', linestyle= 'solid',marker='o', zorder=5) #
-#plt.plot(df_obs_bot_do["datetime"], df_obs_bot_do["observation"], color= 'red', label='22m Observed DO', linestyle= 'dashed', marker='o', zorder=5) #ME
-plt.plot(df_obs_bot_do["datetime"], df_obs_bot_do["observation"], color= 'red', label='8m Observed DO', linestyle= 'dashed', marker='o', zorder=5) #Peter
+plt.plot(df_obs_bot_do["datetime"], df_obs_bot_do["observation"], color= 'red', label='22m Observed DO', linestyle= 'dashed', marker='o', zorder=5) #ME
+# plt.plot(df_obs_bot_do["datetime"], df_obs_bot_do["observation"], color= 'red', label='8m Observed DO', linestyle= 'dashed', marker='o', zorder=5) #Peter
 plt.ylabel("DO (mg/L)", fontsize=15)
 plt.xlabel("Time", fontsize=15) 
 plt.legend(loc='best')
 plt.show()
 
-# df_obs_surf_doc = df_obs[(df_obs['variable'] == 'doc') & (df_obs['depth'] == 0)] #ME
-# df_obs_bot_doc= df_obs[(df_obs['variable'] == 'doc') & (df_obs['depth'] == 20)] #ME
-df_obs_surf_doc = df_obs[(df_obs['variable'] == 'doc') & (df_obs['depth'] == 1)] #Peter Lake
-df_obs_bot_doc= df_obs[(df_obs['variable'] == 'doc') & (df_obs['depth'] == 12)] #Peter Lake
+df_obs_surf_doc = df_obs[(df_obs['variable'] == 'doc') & (df_obs['depth'] == 0)] #ME
+df_obs_bot_doc= df_obs[(df_obs['variable'] == 'doc') & (df_obs['depth'] == 20)] #ME
+# df_obs_surf_doc = df_obs[(df_obs['variable'] == 'doc') & (df_obs['depth'] == 1)] #Peter Lake
+# df_obs_bot_doc= df_obs[(df_obs['variable'] == 'doc') & (df_obs['depth'] == 12)] #Peter Lake
 
 plt.figure(figsize=(10, 5))
-# plt.plot(times, doc_total[0,:]/volume[0], color='blue', label='0m Modeled DOC', linestyle='solid') #ME
-# plt.plot(times, doc_total[40,:]/volume[40], color='blue', label='20m Modeled DOC', linestyle='dashed')#ME
-# plt.scatter(df_obs_surf_doc["datetime"], df_obs_surf_doc["observation"], color='red', label='0m Observed DOC', marker='o', zorder=5) #ME
-# plt.scatter(df_obs_bot_doc["datetime"], df_obs_bot_doc["observation"], color='red', label='20m Observed DOC', marker='x', zorder=5) #ME
-plt.plot(times, doc_total[2,:]/volume[2], color='blue', label='1m Modeled DOC', linestyle='solid') #Peter
-plt.plot(times, doc_total[24,:]/volume[24], color='blue', label='12m Modeled DOC', linestyle='dashed') #Peter
-plt.scatter(df_obs_surf_doc["datetime"], df_obs_surf_doc["observation"], color='red', label='1m Observed DOC', marker='o', zorder=5) #Peter
-plt.scatter(df_obs_bot_doc["datetime"], df_obs_bot_doc["observation"], color='red', label='12m Observed DOC', marker='x', zorder=5) #Peter
+plt.plot(times, doc_total[0,:]/volume[0], color='blue', label='0m Modeled DOC', linestyle='solid') #ME
+plt.plot(times, doc_total[40,:]/volume[40], color='blue', label='20m Modeled DOC', linestyle='dashed')#ME
+plt.scatter(df_obs_surf_doc["datetime"], df_obs_surf_doc["observation"], color='red', label='0m Observed DOC', marker='o', zorder=5) #ME
+plt.scatter(df_obs_bot_doc["datetime"], df_obs_bot_doc["observation"], color='red', label='20m Observed DOC', marker='x', zorder=5) #ME
+# plt.plot(times, doc_total[2,:]/volume[2], color='blue', label='1m Modeled DOC', linestyle='solid') #Peter
+# plt.plot(times, doc_total[24,:]/volume[24], color='blue', label='12m Modeled DOC', linestyle='dashed') #Peter
+# plt.scatter(df_obs_surf_doc["datetime"], df_obs_surf_doc["observation"], color='red', label='1m Observed DOC', marker='o', zorder=5) #Peter
+# plt.scatter(df_obs_bot_doc["datetime"], df_obs_bot_doc["observation"], color='red', label='12m Observed DOC', marker='x', zorder=5) #Peter
 plt.ylabel("DOC (mg/L)", fontsize=15)
 plt.xlabel("Time", fontsize=15)
 plt.ylim(2, 8)
 plt.legend(loc='best')
 plt.show()
 
-#df_obs_temp=pd.read_csv('../input/observedTemp.txt',  parse_dates=['datetime'])
-df_obs_temp=pd.read_csv('../input/Peter Lake/peter_wtemph.csv',  parse_dates=['datetime'])
+df_obs_temp=pd.read_csv('../input/observedTemp.txt',  parse_dates=['datetime'])
+#df_obs_temp=pd.read_csv('../input/Peter Lake/peter_wtemph.csv',  parse_dates=['datetime'])
 df_obs_temp['datetime'] = pd.to_datetime(df_obs_temp['datetime'], errors='coerce')
 df_obs_temp = df_obs_temp[(df_obs_temp['datetime'] >= startingDate) & (df_obs_temp['datetime'] <= endingDate)]
 
-# df_obs_surf_temp = df_obs_temp[(df_obs_temp['Depth_meter'] == 1)] #ME
-# df_obs_bot_temp = df_obs_temp[(df_obs_temp['Depth_meter'] == 22)]#ME
-df_obs_surf_temp = df_obs_temp[(df_obs_temp['Depth_meter'] == 0)]#Peter
-df_obs_bot_temp = df_obs_temp[(df_obs_temp['Depth_meter'] == 8)] #Peter
+df_obs_surf_temp = df_obs_temp[(df_obs_temp['Depth_meter'] == 1)] #ME
+df_obs_bot_temp = df_obs_temp[(df_obs_temp['Depth_meter'] == 22)]#ME
+# df_obs_surf_temp = df_obs_temp[(df_obs_temp['Depth_meter'] == 0)]#Peter
+# df_obs_bot_temp = df_obs_temp[(df_obs_temp['Depth_meter'] == 8)] #Peter
 
 
 plt.figure(figsize=(10, 5))
-# plt.plot(times, temp[2,:], color= 'blue', label='1m Modeled Temp', linestyle= 'solid') #ME
-# plt.plot(times, temp[44,:], color= 'blue', label='22m Modeled Temp', linestyle= 'dashed') #ME
-# plt.plot(df_obs_surf_temp["datetime"], df_obs_surf_temp["Water_Temperature_celsius"], color= 'red', label='1m Observed Temp', marker='o', zorder=5, linestyle= 'solid') #ME
-# plt.plot(df_obs_bot_temp["datetime"], df_obs_bot_temp["Water_Temperature_celsius"], color= 'red', label='22m Observed Temp',  marker='o', zorder=5, linestyle= 'dashed') #ME
-plt.plot(times, temp[0,:], color= 'blue', label='1m Modeled Temp', linestyle= 'solid') #Peter
-plt.plot(times, temp[16,:], color= 'blue', label='8m Modeled Temp', linestyle= 'dashed') #Peter
-plt.plot(df_obs_surf_temp["datetime"], df_obs_surf_temp["Water_Temperature_celsius"], color= 'red', label='0m Observed Temp', marker='o', zorder=5, linestyle= 'solid') #Peter
-plt.plot(df_obs_bot_temp["datetime"], df_obs_bot_temp["Water_Temperature_celsius"], color= 'red', label='8m Observed Temp',  marker='o', zorder=5, linestyle= 'dashed') #Peter
+plt.plot(times, temp[2,:], color= 'blue', label='1m Modeled Temp', linestyle= 'solid') #ME
+plt.plot(times, temp[44,:], color= 'blue', label='22m Modeled Temp', linestyle= 'dashed') #ME
+plt.plot(df_obs_surf_temp["datetime"], df_obs_surf_temp["Water_Temperature_celsius"], color= 'red', label='1m Observed Temp', marker='o', zorder=5, linestyle= 'solid') #ME
+plt.plot(df_obs_bot_temp["datetime"], df_obs_bot_temp["Water_Temperature_celsius"], color= 'red', label='22m Observed Temp',  marker='o', zorder=5, linestyle= 'dashed') #ME
+# plt.plot(times, temp[0,:], color= 'blue', label='1m Modeled Temp', linestyle= 'solid') #Peter
+# plt.plot(times, temp[16,:], color= 'blue', label='8m Modeled Temp', linestyle= 'dashed') #Peter
+# plt.plot(df_obs_surf_temp["datetime"], df_obs_surf_temp["Water_Temperature_celsius"], color= 'red', label='0m Observed Temp', marker='o', zorder=5, linestyle= 'solid') #Peter
+# plt.plot(df_obs_bot_temp["datetime"], df_obs_bot_temp["Water_Temperature_celsius"], color= 'red', label='8m Observed Temp',  marker='o', zorder=5, linestyle= 'dashed') #Peter
 plt.ylabel("Temp.", fontsize=15)
 plt.xlabel("Time", fontsize=15) 
 plt.legend(loc='best')

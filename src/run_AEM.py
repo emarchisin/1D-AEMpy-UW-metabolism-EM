@@ -722,11 +722,11 @@ df_obs['datetime'] = pd.to_datetime(df_obs['datetime'], errors='coerce')
 df_obs = df_obs[(df_obs['datetime'] >= startingDate) & (df_obs['datetime'] <= endingDate)]
 df_obs_surf_do = df_obs[(df_obs['variable'] == 'do') & (df_obs['depth'] == 1)]
 df_obs_surf_do['datetime'] = pd.to_datetime(df_obs_surf_do['datetime'], format = 'mixed')
-df_obs_bot_do= df_obs[(df_obs['variable'] == 'do') & (df_obs['depth'] == 22)]
+df_obs_bot_do= df_obs[(df_obs['variable'] == 'do') & (df_obs['depth'] == 8)]
 
 plt.figure(figsize=(10, 5))
 plt.plot(times, o2[2,:]/volume[2], color= 'blue', label='1m Modeled DO', linestyle= 'solid')
-plt.plot(times, o2[44,:]/volume[44], color= 'blue', label='22m Modeled DO', linestyle= 'dashed')
+plt.plot(times, o2[16,:]/volume[16], color= 'blue', label='8m Modeled DO', linestyle= 'dashed')
 plt.plot(df_obs_surf_do["datetime"], df_obs_surf_do["observation"], color= 'red', label='1m Observed DO', linestyle= 'solid',marker='o', zorder=5)
 plt.plot(df_obs_bot_do["datetime"], df_obs_bot_do["observation"], color= 'red', label='8m Observed DO', linestyle= 'dashed', marker='o', zorder=5)
 plt.ylabel("DO (mg/L)", fontsize=15)

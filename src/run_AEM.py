@@ -24,31 +24,31 @@ from processBased_lakeModel_functions import get_hypsography, provide_meteorolog
 
 Start = datetime.datetime.now()
 num_lakes = get_num_data_columns(
-    "../input/ME/lake_config.csv", "Zmax"
+    "../input/Peter Lake/lake_config.csv", "Zmax" #ME instead of 'Peter Lake'
 )
 
 for lake_num in range(1, num_lakes + 1):
 
    
     lake_config = get_lake_config( # RL: added Longitdue, Latitude and Elevation
-        "../input/ME/lake_config.csv", lake_num
+        "../input/Peter Lake/lake_config.csv", lake_num
     )
     model_params = get_model_params(
-        "../input/ME/model_params.csv", lake_num
+        "../input/Peter Lake/model_params.csv", lake_num
     )
     run_config = get_run_config(
-        "../input/ME/run_config.csv", lake_num
+        "../input/Peter Lake/run_config.csv", lake_num
     )
     ice_and_snow = get_ice_and_snow(
-        "../input/ME/ice_and_snow.csv", lake_num
+        "../input/Peter Lake/ice_and_snow.csv", lake_num
     )
-    windfactor = float(lake_config["WindSpeed"])
+    windfactor = float(model_params["wind_factor"])
     zmax = lake_config['Zmax']
     nx = int(run_config["nx"])# number of layers we will have
     dt = float(run_config["dt"])# 24 hours times 60 min/hour times 60 seconds/min to convert s to day
     dx = float(run_config["dx"]) # spatial step
     ## area and depth values of our lake 
-    area, depth, volume, hypso_weight = get_hypsography(hypsofile = '../input/ME/bathymetry.csv',#'../input/Peter Lake/bathymetry.csv',
+    area, depth, volume, hypso_weight = get_hypsography(hypsofile = '../input/Peter Lake/bathymetry.csv',#'../input/Peter Lake/bathymetry.csv',
                             dx = dx, nx = nx, outflow_depth=float(lake_config["outflow_depth"]))
     #area, depth, volume = get_hypsography(hypsofile = '../input/bathymetry.csv',
       #                      dx = dx, nx = nx)
@@ -94,7 +94,7 @@ for lake_num in range(1, num_lakes + 1):
                     windfactor = windfactor, lat = lake_config["Latitude"], lon = lake_config["Longitude"], elev = lake_config["Elevation"],
                     startDate = startingDate)
 
-    pd.DataFrame(meteo_all).to_csv("../input/ME/NLDAS-ME-meteo16-24.csv", index = False)
+    pd.DataFrame(meteo_all).to_csv("../input/Peter Lake/NLDAS-ME-meteo16-24.csv", index = False)
                      
     atm_flux_output = np.zeros(nTotalSteps,) 
     u_ini = initial_profile(initfile = run_config["u_ini_file"], nx = nx, dx = dx,
@@ -143,8 +143,8 @@ for lake_num in range(1, num_lakes + 1):
         # MODEL PARAMS - initial conditions
         u=deepcopy(u_ini),  # already read
         o2=deepcopy(wq_ini[0]),  # already read
-        docr=deepcopy(wq_ini[1])*.75, #* 1.3,
-        docl=deepcopy(wq_ini[1])*.25,#1.0 * volume,
+        docr=deepcopy(wq_ini[1]) * 0.85, #* 1.3,
+        docl=deepcopy(wq_ini[1]) * 0.15,#1.0 * volume,
         pocr=0.5 * volume,
         pocl=0.5 * volume,
 
@@ -533,7 +533,7 @@ print(np.mean((np.transpose(np.transpose(npp)/volume)* 86400)))
 print(np.min((np.transpose(np.transpose(npp)/volume)* 86400)))
 
 fig, ax = plt.subplots(figsize=(15,5))
-sns.heatmap((np.transpose(np.transpose(npp)/volume)), cmap=plt.cm.get_cmap('Spectral_r'),  vmin=0, vmax=5, xticklabels=1000, yticklabels=2)
+sns.heatmap((np.transpose(np.transpose(npp)/volume)), cmap=plt.cm.get_cmap('Spectral_r'),  vmin=0, vmax=3, xticklabels=1000, yticklabels=2)
 ax.contour(np.arange(.5, temp.shape[1]), np.arange(.5, temp.shape[0]), calc_dens(temp), levels=[999],
            colors=['black', 'gray'],
            linestyles = 'dotted')
@@ -652,8 +652,8 @@ plt.plot(times, temp[0,:] - temp[(nx-1),:], color = 'red')
 plt.show()
 
 #Diagnostic graphs at depth 
-depths = [1,44]   # Python indices for depth=1 and depth=22
-labels = ['Depth 1', 'Depth 22']
+depths = [1,32]   # Python indices for depth=1 and depth=22
+labels = ['Depth 1', 'Depth 16']
 
 doc_total = np.add(docl, docr)
 poc_total = np.add(pocl, pocr)
@@ -716,7 +716,8 @@ plt.title("Particulate Organic Carbon (POC)")
 plt.show()
 
 #Check against observed data
-df_obs=pd.read_csv('../input/mendota_driver_data_v3.csv',  parse_dates=['datetime'])
+# df_obs=pd.read_csv('../input/mendota_driver_data_v3.csv',  parse_dates=['datetime'])
+df_obs=pd.read_csv('../input/Peter Lake/peter_driver2.csv',  parse_dates=['datetime'])
 df_obs['datetime'] = pd.to_datetime(df_obs['datetime'], errors='coerce')
 df_obs = df_obs[(df_obs['datetime'] >= startingDate) & (df_obs['datetime'] <= endingDate)]
 df_obs_surf_do = df_obs[(df_obs['variable'] == 'do') & (df_obs['depth'] == 1)]
@@ -727,40 +728,41 @@ plt.figure(figsize=(10, 5))
 plt.plot(times, o2[2,:]/volume[2], color= 'blue', label='1m Modeled DO', linestyle= 'solid')
 plt.plot(times, o2[44,:]/volume[44], color= 'blue', label='22m Modeled DO', linestyle= 'dashed')
 plt.plot(df_obs_surf_do["datetime"], df_obs_surf_do["observation"], color= 'red', label='1m Observed DO', linestyle= 'solid',marker='o', zorder=5)
-plt.plot(df_obs_bot_do["datetime"], df_obs_bot_do["observation"], color= 'red', label='22m Observed DO', linestyle= 'dashed', marker='o', zorder=5)
+plt.plot(df_obs_bot_do["datetime"], df_obs_bot_do["observation"], color= 'red', label='8m Observed DO', linestyle= 'dashed', marker='o', zorder=5)
 plt.ylabel("DO (mg/L)", fontsize=15)
 plt.xlabel("Time", fontsize=15) 
 plt.legend(loc='best')
 plt.show()
 
 df_obs_surf_doc = df_obs[(df_obs['variable'] == 'doc') & (df_obs['depth'] == 0)]
-df_obs_bot_doc= df_obs[(df_obs['variable'] == 'doc') & (df_obs['depth'] == 20)]
+df_obs_bot_doc= df_obs[(df_obs['variable'] == 'doc') & (df_obs['depth'] == 12)]
 
 plt.figure(figsize=(10, 5))
 plt.plot(times, doc_total[0,:]/volume[0], color='blue', label='0m Modeled DOC', linestyle='solid')
-plt.plot(times, doc_total[40,:]/volume[40], color='blue', label='20m Modeled DOC', linestyle='dashed')
+plt.plot(times, doc_total[24,:]/volume[24], color='blue', label='12m Modeled DOC', linestyle='dashed')
 plt.scatter(df_obs_surf_doc["datetime"], df_obs_surf_doc["observation"], 
             color='red', label='0m Observed DOC', marker='o', zorder=5)
 plt.scatter(df_obs_bot_doc["datetime"], df_obs_bot_doc["observation"], 
-            color='red', label='20m Observed DOC', marker='x', zorder=5)
+            color='red', label='16m Observed DOC', marker='x', zorder=5)
 plt.ylabel("DOC (mg/L)", fontsize=15)
 plt.xlabel("Time", fontsize=15)
 plt.ylim(2, 8)
 plt.legend(loc='best')
 plt.show()
 
-df_obs_temp=pd.read_csv('../input/observedTemp.txt',  parse_dates=['datetime'])
+# df_obs_temp=pd.read_csv('../input/observedTemp.txt',  parse_dates=['datetime'])
+df_obs_temp=pd.read_csv('../input/Peter Lake/peter_wtemph.csv',  parse_dates=['datetime'])
 df_obs_temp['datetime'] = pd.to_datetime(df_obs_temp['datetime'], errors='coerce')
 df_obs_temp = df_obs_temp[(df_obs_temp['datetime'] >= startingDate) & (df_obs_temp['datetime'] <= endingDate)]
 
 df_obs_surf_temp = df_obs_temp[(df_obs_temp['Depth_meter'] == 1)]
-df_obs_bot_temp = df_obs_temp[(df_obs_temp['Depth_meter'] == 22)]
+df_obs_bot_temp = df_obs_temp[(df_obs_temp['Depth_meter'] == 16)]
 
 plt.figure(figsize=(10, 5))
 plt.plot(times, temp[2,:], color= 'blue', label='1m Modeled Temp', linestyle= 'solid')
-plt.plot(times, temp[44,:], color= 'blue', label='22m Modeled Temp', linestyle= 'dashed')
+plt.plot(times, temp[32,:], color= 'blue', label='16m Modeled Temp', linestyle= 'dashed')
 plt.plot(df_obs_surf_temp["datetime"], df_obs_surf_temp["Water_Temperature_celsius"], color= 'red', label='1m Observed Temp', marker='o', zorder=5, linestyle= 'solid')
-plt.plot(df_obs_bot_temp["datetime"], df_obs_bot_temp["Water_Temperature_celsius"], color= 'red', label='22m Observed Temp',  marker='o', zorder=5, linestyle= 'dashed')
+plt.plot(df_obs_bot_temp["datetime"], df_obs_bot_temp["Water_Temperature_celsius"], color= 'red', label='16m Observed Temp',  marker='o', zorder=5, linestyle= 'dashed')
 plt.ylabel("Temp.", fontsize=15)
 plt.xlabel("Time", fontsize=15) 
 plt.legend(loc='best')

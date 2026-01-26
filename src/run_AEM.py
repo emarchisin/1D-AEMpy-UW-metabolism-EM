@@ -212,6 +212,7 @@ for lake_num in range(1, num_lakes + 1):
         IP=model_params["IP"]/86400,
         f_sod=model_params["f_sod"],
         d_thick=model_params["d_thick"],
+        GPP_inc = model_params["GPP_inc"],
 
         # carbon pool partitioning
         prop_oc_docr=model_params["prop_oc_docr"],
@@ -257,6 +258,7 @@ thermo_dep = res['thermo_dep']
 energy_ratio = res['energy_ratio']
 atm_flux_output=res['atm_flux_output']
 
+SW_flux = meteo[4, ]
 
 End = datetime.datetime.now()
 print(End - Start)
@@ -289,12 +291,12 @@ axis[3].set_xlabel('Time')
 plt.tight_layout()
 plt.show()
 
-plt.plot(icethickness[0])
-plt.show()
+# plt.plot(icethickness[0])
+# plt.show()
 
 
-plt.plot(npp[0,:])
-plt.show()
+# plt.plot(npp[0,:])
+# plt.show()
 
 depth1=2 #index for 1m depth
 def compute_delta_hourly(var):
@@ -407,6 +409,26 @@ yticks_ix = np.array(ax.get_yticks()).astype(int)
 depth_label = yticks_ix / 2
 ax.set_yticklabels(depth_label, rotation=0)
 plt.show()
+
+# breakpoint()
+# fig, ax = plt.subplots(figsize=(15,5))
+# sns.heatmap(SW_flux, cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2, vmin = 0, vmax = 30)
+# ax.contour(np.arange(.5, temp.shape[1]), np.arange(.5, temp.shape[0]), calc_dens(temp), levels=[999],
+#            colors=['black', 'gray'],
+#            linestyles = 'dotted')
+# ax.set_ylabel("Depth (m)", fontsize=15)
+# ax.set_xlabel("Time", fontsize=15)    
+# ax.collections[0].colorbar.set_label("Short-wave flux  (W/m2)")
+# xticks_ix = np.array(ax.get_xticks()).astype(int)
+# time_label = times[xticks_ix]
+# nelement = len(times)//N_pts
+# #time_label = time_label[::nelement]
+# #ax.xaxis.set_major_locator(plt.MaxNLocator(N_pts * n_years))
+# ax.set_xticklabels(time_label.strftime("%d-%m-%y"), rotation=45, ha = 'right')
+# yticks_ix = np.array(ax.get_yticks()).astype(int)
+# depth_label = yticks_ix / 2
+# ax.set_yticklabels(depth_label, rotation=0)
+# plt.show()
 
 
 
@@ -530,9 +552,7 @@ depth_label = yticks_ix / 2
 ax.set_yticklabels(depth_label, rotation=0)
 plt.show()
 
-print(np.max((np.transpose(np.transpose(npp)/volume))))
-print(np.mean((np.transpose(np.transpose(npp)/volume))))
-print(np.min((np.transpose(np.transpose(npp)/volume))))
+
 fig, ax = plt.subplots(figsize=(15,5))
 sns.heatmap((np.transpose(np.transpose(npp)/volume)), cmap=plt.cm.get_cmap('Spectral_r'),  xticklabels=1000, yticklabels=2)
 ax.contour(np.arange(.5, temp.shape[1]), np.arange(.5, temp.shape[0]), calc_dens(temp), levels=[999],

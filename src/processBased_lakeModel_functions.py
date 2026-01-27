@@ -2089,7 +2089,7 @@ def boundary_module(
            'docr': docr,
            'docl': docl,
            'pocr': pocr,
-           'pocl':pocl,
+           'pocl': pocl,
            'npp': npp}
 
     
@@ -2208,7 +2208,7 @@ def prodcons_module_woDOCL(
     def fun(y, a, consumption, npp, growth, temp):
         #"Production and destruction term for a simple linear model."
         o2n, docrn, docln, pocrn, pocln,  = y
-        resp_docr, resp_docl, resp_pocl, resp_pocr, = a
+        resp_docr, resp_docl, resp_pocr, resp_pocl, = a ###PCH switched order of last two for consistency
         consumption = consumption.item()
         npp = npp.item() # npp.item()
         growth = growth #growth.item()
@@ -2221,17 +2221,22 @@ def prodcons_module_woDOCL(
         e = 0.95
         
         #Production matrix (5x5) <---- EM: Restructure code for ease of viewing
+        ###PCH it's not clear to me whether temperature adjustment should be invoked here
+        # to be consistent with how "consumption" is invoked for respiration processes
         p = np.zeros((5,5), dtype=float) #Create matrix of 0s
         p[0,0]= npp * oxygen #O2 production from NPP
-        p[1,3]=(pocrn * resp_pocr * consumption) #DOC-R from POCr respiration
-        p[2,4]= 0.2 * npp * carbon #POCl from POCl respiration + small NPP term (pocln * resp_pocl * consumption) +
-        p[4,4]=(0.8*npp * carbon) #POCl production from NPP
+        p[1,3]=(pocrn * resp_pocr * consumption)*0.1 ###PCH added 0.1 #DOC-R from POCr respiration, see 6 lines lower for 0.9
+        p[2,4]= 0.1 * npp * carbon #DOCl production from NPPsmall NPP term 
+        p[4,4]= 0.9 * npp * carbon #POCl production from NPP
         
         #Destruction matrix (5x5)
+        ###PCH it's not clear to me whether consumption should be invoked here if it's already invoked
+        # in the return statement of the solover
         d = np.zeros((5,5), dtype=float) #create matrix of 0s
         d[0,1] = carbon_oxygen * (docrn * resp_docr * consumption) #O2 destroyed from DOCr consumption
         d[0,2] = carbon_oxygen * (docln * resp_docl * consumption) #O2 destroyed from DOCl consumption
-        d[0,3] = carbon_oxygen * (pocrn * resp_pocr * consumption) #O2 destroyed from POCr consumption
+        d[0,3] = carbon_oxygen * (pocrn * resp_pocr * consumption) * 0.9 ###PCH added 0.9 #O2 destroyed from POCr consumption assumes
+        # that 90% of degradation goes to CO2 and 10% to DOCr
         d[0,4] = carbon_oxygen * (pocln * resp_pocl * consumption) #O2 destroyed from POCl consumption
         
         #diagonal destruction
@@ -2292,11 +2297,15 @@ def prodcons_module_woDOCL(
 
         P_max = 1.5 * 10**(-6) # mol C/m2/s
         alpha_P = 0.03 # mol C per mol photon
-        LIGHTUSEBYPHOTOS = 0.3 # proportion of the ambient light taken up by phytos
+        LIGHTUSEBYPHOTOS = 0.1 # proportion of the ambient light taken up by phytos ###PCH changed this from 0.3 to tune
+        # probably should make this a tunable parameter
 
         P_I = P_max * (1 - exp(- (alpha_P*LIGHTUSEBYPHOTOS) * PAR/P_max)) # mol C/m2/s
 
-        k_TP = 0.03 # mg/L
+        k_TP = 0.06 # mg/L 0.03? ###PCH used this to tune
+        ###PCH When Robert and Paul developed this approach, TP was in mg/L, but inputs here are in ug/L, so must divide by 1000
+        # I suggest we move this to where data are read in and conform to a standard of mg/L (=g/m3)
+        TP = TP / 1000 # Convert ug/L to mg/L ###PCH
 
         f_TP = TP / (k_TP + TP) # dimensionless
 
@@ -2353,6 +2362,8 @@ def prodcons_module_woDOCL(
         # breakpoint()
         return [y, 86400 * resp[0] * consumption, 86400 * resp[1] * consumption, 86400 * resp[2] * consumption, 86400 * resp[3] * consumption,
                 npp * 86400 * 12]
+        #return [y, 86400 * resp[0], 86400 * resp[1], 86400 * resp[2], 86400 * resp[3],
+        #    npp * 86400] ###PCH Wasn't crystal clear whether this should be C or molar units in the return
     
     docr_respiration = o2 * 0.0
     docl_respiration = o2 * 0.0
@@ -2368,7 +2379,7 @@ def prodcons_module_woDOCL(
             H_in = Jsw
         else:
             H_in = H[dep - 1]
-        
+        ###PCH in the following lines, changed pocrn and pocln ordering
         mprk_res = solve_mprk(fun, y0 =  [o2n[dep], docrn[dep], docln[dep], pocrn[dep], pocln[dep]], dt = dt, dx = dx,
                resp = [resp_docr, resp_docl, resp_pocr, resp_pocl], theta_r = theta_r, u = u[dep],
                volume = volume[dep], GPP_inc =GPP_inc, area = area[dep],k_half = k_half,
@@ -2377,8 +2388,7 @@ def prodcons_module_woDOCL(
         o2[dep], docr[dep], docl[dep], pocr[dep], pocl[dep] = mprk_res[0]
         docr_respiration[dep], docl_respiration[dep], pocr_respiration[dep], pocl_respiration[dep], npp_production[dep]= [mprk_res[1], mprk_res[2], mprk_res[3], mprk_res[4], mprk_res[5]]
 
-
-    
+  
     # breakpoint()
     # o2 = o2n + dt * consumption * (docrn + docln + pocrn + pocln) * (resp_docr + resp_docl + 2* resp_poc)
     # docr = docrn + dt * consumption * (docrn * resp_docr)
@@ -2545,7 +2555,7 @@ def prodcons_module(
     
     
     for dep in range(0, nx-1):
-        y0 = [float(o2n[dep]), float(docrn[dep]), float(docln[dep]), float(pocrn[dep]), float(pocln[dep])]
+        y0 = [float(o2n[dep]), float(docrn[dep]), float(docln[dep]), float(pocln[dep]), float(pocrn[dep])] ###PCH switched last 2 terms
        # mprk_res = solve_mprk(fun, y0 =  [o2n[dep], docrn[dep], docln[dep], pocrn[dep], pocln[dep]], dt = dt, 
                #resp = [resp_docr, resp_docl, resp_poc], theta_r = theta_r, u = u[dep],
                #volume = volume[dep], k_half = k_half)
@@ -2553,7 +2563,7 @@ def prodcons_module(
                       resp=[resp_docr, resp_docl, resp_pocl, resp_pocr],
                       theta_r=theta_r, u=u[dep],
                       volume=volume[dep], k_half=k_half)
-        o2[dep], docr[dep], docl[dep], pocr[dep], pocl[dep] = mprk_res[0]
+        o2[dep], docr[dep], docl[dep], pocl[dep], pocr[dep] = mprk_res[0] ###PCH switched last 2 terms
         docr_respiration[dep], docl_respiration[dep], poc_respiration[dep] = [mprk_res[1], mprk_res[2], mprk_res[3]]
 
     
@@ -2570,11 +2580,11 @@ def prodcons_module(
     dat = {'o2': o2,
            'docr': docr,
            'docl': docl,
+           'pocl': pocl,
            'pocr': pocr,
-           'pocl':pocl,
            'docr_respiration': docr_respiration,
            'docl_respiration': docl_respiration,
-           'poc_respiration': poc_respiration}
+           'poc_respiration': poc_respiration} ### Changed order of pocl, pocr
 
     
     return dat
@@ -2625,8 +2635,8 @@ def transport_module(
     o2n = o2n / volume
     docrn = docrn / volume 
     docln = docln / volume
-    pocr = pocrn
-    pocl = pocln
+    pocr = pocrn 
+    pocl = pocln 
     
 
 
@@ -2702,7 +2712,8 @@ def transport_module(
     pocl[1:] = pocl[1:] + dt * sinking_loss_pocl[:-1]
     pocl[(nx-1)] = pocl[(nx-1)] - dt * pocl[(nx-1)] * sediment_rate/dx
     
-    sinking_loss_pocr = pocrn *  settling_rate/dx
+    settling_ratePOCR = 3 ###PCH m/d, I created this term to sink POCr out of the system; squirrels are dense
+    sinking_loss_pocr = pocrn *  settling_ratePOCR/dx ###PCH updated equation
     pocr[:-1] = pocrn[:-1] - dt * sinking_loss_pocr[:-1]
     pocr[1:] = pocr[1:] + dt * sinking_loss_pocr[:-1]
     pocr[(nx-1)] = pocr[(nx-1)] - dt * pocr[(nx-1)] * sediment_rate/dx
@@ -2730,7 +2741,7 @@ def transport_module(
            'docr': docr,
            'docl': docl,
            'pocr': pocr,
-           'pocl':pocl}
+           'pocl': pocl}
     
     return dat
 
@@ -3628,6 +3639,7 @@ def boundary_module_oxygen(
 
     
     return dat
+
 def advection_diffusion_module(
         un,
         kzn,
